@@ -117,7 +117,8 @@ export default function App() {
           <Today
             session={todaySession}
             drills={drills}
-            onLogSession={handleLogSession}
+            onSaveLog={saveLog}
+            onOpenPlan={() => setScreen("plan")}
             onSaveCheckIn={(record) => setCheckIns((current) => [record, ...current])}
           />
         ) : null}
@@ -133,7 +134,7 @@ export default function App() {
         ) : null}
         {screen === "drills" ? <Drills drills={drills} /> : null}
         {screen === "log" ? (
-          <Log logs={logs} drills={drills} draftSession={logDraftSession} onSave={saveLog} onDelete={deleteLog} />
+          <Log logs={logs} drills={drills} draftSession={logDraftSession ?? todaySession} onSave={saveLog} onDelete={deleteLog} />
         ) : null}
         {screen === "progress" ? <Progress logs={logs} startDate={settings.startDate} /> : null}
         {screen === "reference" ? (

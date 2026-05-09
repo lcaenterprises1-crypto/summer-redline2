@@ -6,11 +6,12 @@ import { Card } from "./Card";
 interface DrillCardProps {
   drill: Drill;
   compact?: boolean;
+  embedded?: boolean;
 }
 
-export function DrillCard({ drill, compact = false }: DrillCardProps) {
-  return (
-    <Card className={`drill-card ${compact ? "compact" : ""}`}>
+export function DrillCard({ drill, compact = false, embedded = false }: DrillCardProps) {
+  const content = (
+    <>
       <div className="card-topline">
         <span>{drill.category}</span>
         <span>{drill.dose}</span>
@@ -43,6 +44,16 @@ export function DrillCard({ drill, compact = false }: DrillCardProps) {
           {drill.mediaLabel ?? "Watch"}
         </Button>
       ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return <div className={`drill-card embedded-drill ${compact ? "compact" : ""}`}>{content}</div>;
+  }
+
+  return (
+    <Card className={`drill-card ${compact ? "compact" : ""}`}>
+      {content}
     </Card>
   );
 }

@@ -7,9 +7,10 @@ import { Card } from "./Card";
 
 interface CheckInFormProps {
   onSubmit: (checkIn: CheckIn) => void;
+  compact?: boolean;
 }
 
-export function CheckInForm({ onSubmit }: CheckInFormProps) {
+export function CheckInForm({ onSubmit, compact = false }: CheckInFormProps) {
   const [form, setForm] = useState<CheckIn>(() => emptyCheckIn());
 
   const update = <K extends keyof CheckIn>(key: K, value: CheckIn[K]) => {
@@ -17,7 +18,7 @@ export function CheckInForm({ onSubmit }: CheckInFormProps) {
   };
 
   return (
-    <Card className="form-card">
+    <Card className={`form-card ${compact ? "compact-checkin" : ""}`}>
       <div className="section-heading">
         <div>
           <span className="eyebrow">Optional guided mode</span>
@@ -26,7 +27,7 @@ export function CheckInForm({ onSubmit }: CheckInFormProps) {
       </div>
 
       <form
-        className="stack"
+        className={`stack ${compact ? "compact-form" : ""}`}
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(form);

@@ -9,6 +9,7 @@ interface LogFormProps {
   drills: Drill[];
   session?: SessionPlan;
   onSave: (log: TrainingLog) => void;
+  embedded?: boolean;
 }
 
 const dayTypes = [
@@ -23,7 +24,7 @@ const dayTypes = [
   "Modified",
 ];
 
-export function LogForm({ drills, session, onSave }: LogFormProps) {
+export function LogForm({ drills, session, onSave, embedded = false }: LogFormProps) {
   const initial = useMemo(() => createInitialLog(session), [session]);
   const [form, setForm] = useState<TrainingLog>(initial);
 
@@ -44,8 +45,8 @@ export function LogForm({ drills, session, onSave }: LogFormProps) {
     }));
   };
 
-  return (
-    <Card className="form-card">
+  const content = (
+    <>
       <div className="section-heading">
         <div>
           <span className="eyebrow">Optional</span>
@@ -206,6 +207,16 @@ export function LogForm({ drills, session, onSave }: LogFormProps) {
           Save Log
         </Button>
       </form>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="form-card embedded-form">{content}</div>;
+  }
+
+  return (
+    <Card className="form-card">
+      {content}
     </Card>
   );
 }

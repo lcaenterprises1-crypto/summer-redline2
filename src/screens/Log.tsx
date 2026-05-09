@@ -1,9 +1,11 @@
 import { Trash2 } from "lucide-react";
 import type { Drill, SessionPlan, TrainingLog } from "../types";
 import { formatDisplayDate } from "../logic/schedule";
+import { AccordionCard } from "../components/AccordionCard";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { LogForm } from "../components/LogForm";
+import { QuickLogCard } from "../components/QuickLogCard";
 import { StatusBadge } from "../components/StatusBadge";
 
 interface LogProps {
@@ -26,7 +28,17 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
         </div>
       </div>
 
-      <LogForm drills={drills} session={draftSession} onSave={onSave} />
+      {draftSession ? (
+        <QuickLogCard session={draftSession} onSave={onSave} />
+      ) : (
+        <Card>
+          <p className="muted-line">Open Today or Plan and tap Log to prefill a quick log for that session.</p>
+        </Card>
+      )}
+
+      <AccordionCard title="More Details" summary="Full log form">
+        <LogForm drills={drills} session={draftSession} onSave={onSave} embedded />
+      </AccordionCard>
 
       <div className="section-heading">
         <div>

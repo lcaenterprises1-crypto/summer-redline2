@@ -1,42 +1,53 @@
-import { ClipboardCheck, SlidersHorizontal } from "lucide-react";
+import { ClipboardCheck, RotateCcw, SlidersHorizontal, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { AdjustedSession, CheckIn, CheckInRecord, Drill, SessionPlan } from "../types";
+import type { AdjustedSession, CheckIn, CheckInRecord, Drill, SessionPlan, TrainingLog } from "../types";
 import { evaluateArmStatus, type ArmStatusResult } from "../logic/armStatus";
 import { buildAdjustedSession } from "../logic/adjustedSession";
+import {
+  cooldownDetailsForSession,
+  drillSummary,
+  plyoPlanForSession,
+  selectedDrills,
+  warmupDetailsForSession,
+  warmupNameForSession,
+} from "../logic/dailyPlan";
 import { formatDisplayDate, todayIso } from "../logic/schedule";
+import { AccordionCard } from "../components/AccordionCard";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { CheckInForm } from "../components/CheckInForm";
 import { DrillCard } from "../components/DrillCard";
-import { SessionCard } from "../components/SessionCard";
+import { QuickLogCard } from "../components/QuickLogCard";
 import { StatusBadge } from "../components/StatusBadge";
 
 interface TodayProps {
   session: SessionPlan;
   drills: Drill[];
-  onLogSession: (session: SessionPlan) => void;
   onSaveCheckIn: (record: CheckInRecord) => void;
+  onSaveLog: (log: TrainingLog) => void;
+  onOpenPlan: () => void;
 }
+
+type TodayMode = "overview" | "adjust" | "adjusted" | "active";
 
 interface ResultState {
   status: ArmStatusResult;
   adjusted: AdjustedSession;
 }
 
-export function Today({ session, drills, onLogSession, onSaveCheckIn }: TodayProps) {
-  const [guidedOpen, setGuidedOpen] = useState(false);
+export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }: TodayProps) {
+  const [mode, setMode] = useState<TodayMode>("overview");
   const [result, setResult] = useState<ResultState | null>(null);
-  const [followMessage, setFollowMessage] = useState("");
+  const [activeAdjusted, setActiveAdjusted] = useState(false);
 
-  const drillMap = useMemo(() => new Map(drills.map((drill) => [drill.id, drill])), [drills]);
-  const todayDrills = session.drillIds.map((id) => drillMap.get(id)).filter(Boolean) as Drill[];
-  const yellow = buildAdjustedSession(session, "yellow", "Arm is yellow");
-  const red = buildAdjustedSession(session, "red", "Arm is yellow");
+  const todayDrills = useMemo(() => selectedDrills(session.drillIds, drills), [drills, session.drillIds]);
 
   const handleCheckIn = (checkIn: CheckIn) => {
     const status = evaluateArmStatus(checkIn);
     const adjusted = buildAdjustedSession(session, status.status, checkIn.mechanicalIssue);
     setResult({ status, adjusted });
+    setActiveAdjusted(false);
+    setMode("adjusted");
     onSaveCheckIn({
       id: `checkin-${Date.now()}`,
       date: todayIso(),
@@ -47,142 +58,172 @@ export function Today({ session, drills, onLogSession, onSaveCheckIn }: TodayPro
     });
   };
 
-  return (
-    <div className="screen stack">
-      <SessionCard session={session} drills={drills} showActions={false} title="Today's Plan" />
+  if (mode === "active") {
+    return (
+      <FullPlanView
+        session={session}
+        drills={drills}
+        adjusted={activeAdjusted ? result?.adjusted : undefined}
+        status={activeAdjusted ? result?.status.status : "not checked"}
+        onBack={() => setMode("overview")}
+        onAdjust={() => setMode("adjust")}
+        onReset={() => {
+          setActiveAdjusted(false);
+          setMode("active");
+        }}
+        onSaveLog={onSaveLog}
+        onOpenPlan={onOpenPlan}
+      />
+    );
+  }
 
-      <div className="quick-actions">
-        <Button
-          variant="primary"
-          fullWidth
-          icon={<ClipboardCheck size={18} />}
-          onClick={() => setFollowMessage("Planned session selected. Keep the cue simple and log if useful.")}
-        >
-          Follow Planned Session
-        </Button>
-        <Button
-          variant="secondary"
-          fullWidth
-          icon={<SlidersHorizontal size={18} />}
-          onClick={() => setGuidedOpen((open) => !open)}
-        >
-          Build Adjusted Session
-        </Button>
-        <Button variant="ghost" fullWidth onClick={() => onLogSession(session)}>
-          Log Session
-        </Button>
+  if (mode === "adjust") {
+    return (
+      <div className="screen stack today-flow">
+        <TodayTopper label="Adjust Full Plan" onBack={() => setMode("overview")} />
+        <CheckInForm onSubmit={handleCheckIn} compact />
       </div>
+    );
+  }
 
-      {followMessage ? <p className="inline-message">{followMessage}</p> : null}
+  if (mode === "adjusted" && result) {
+    return (
+      <div className="screen stack today-flow">
+        <TodayTopper label="Adjusted Plan Ready" onBack={() => setMode("overview")} />
+        <AdjustedPlanReady
+          result={result}
+          drills={drills}
+          onStart={() => {
+            setActiveAdjusted(true);
+            setMode("active");
+          }}
+          onEdit={() => setMode("adjust")}
+          onUseOriginal={() => {
+            setActiveAdjusted(false);
+            setMode("overview");
+          }}
+        />
+      </div>
+    );
+  }
 
-      <Card>
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">{formatDisplayDate(session.date)}</span>
-            <h2>Do This Today</h2>
-          </div>
-        </div>
-        <div className="do-list">
-          <PlanBlock
-            title="Warmup"
-            lines={[session.mound ? "Pre-Mound Warmup" : session.dayType === "Full Off" ? "No-Throw Recovery Warmup" : "Full Throwing Warmup"]}
-          />
-          <PlanBlock
-            title="Drills"
-            lines={todayDrills.map((drill, index) => `${index + 1}. ${drill.name} - ${drill.dose}`)}
-          />
-          <PlanBlock
-            title="Throwing"
-            lines={[
-              `${session.throws} throws`,
-              `${session.distanceFt} ft`,
-              `${session.intent} intent`,
-              session.mound ? "Mound: yes" : "No mound",
-              "No pulldowns unless explicitly planned and earned.",
-            ]}
-          />
-        </div>
-      </Card>
-
-      <Card>
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">Simple substitutions</span>
-            <h2>Yellow / Red Alternatives</h2>
-          </div>
-        </div>
-        <div className="substitution-grid">
-          <div className="substitution yellow">
-            <StatusBadge status="yellow" />
-            <h3>{yellow.dayType}</h3>
-            <p>{yellow.throwing}</p>
-            <p>{yellow.recommendation}</p>
-          </div>
-          <div className="substitution red">
-            <StatusBadge status="red" />
-            <h3>Recommended: no throwing</h3>
-            <p>Recovery warmup + arm care only.</p>
-            <p>{red.throwing}</p>
-          </div>
-        </div>
-      </Card>
-
-      {todayDrills.length > 0 ? (
-        <div className="stack">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">Tap for details</span>
-              <h2>Today's Drills</h2>
-            </div>
-          </div>
-          <div className="card-list">
-            {todayDrills.map((drill) => (
-              <DrillCard key={drill.id} drill={drill} compact />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {guidedOpen ? <CheckInForm onSubmit={handleCheckIn} /> : null}
-
-      {result ? <AdjustedSessionCard result={result} drills={drills} /> : null}
+  return (
+    <div className="screen stack today-flow">
+      <TodayLaunch
+        session={session}
+        drills={drills}
+        todayDrills={todayDrills}
+        onStart={() => {
+          setActiveAdjusted(false);
+          setMode("active");
+        }}
+        onAdjust={() => setMode("adjust")}
+      />
     </div>
   );
 }
 
-function PlanBlock({ title, lines }: { title: string; lines: string[] }) {
+function TodayTopper({ label, onBack }: { label: string; onBack: () => void }) {
   return (
-    <div className="plan-block">
-      <h3>{title}</h3>
-      {lines.length > 0 ? (
-        <ul>
-          {lines.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      ) : (
-        <p>None planned.</p>
-      )}
+    <div className="today-topper">
+      <button type="button" onClick={onBack}>
+        <Undo2 size={17} />
+        <span>Today Overview</span>
+      </button>
+      <strong>{label}</strong>
     </div>
   );
 }
 
-function AdjustedSessionCard({ result, drills }: { result: ResultState; drills: Drill[] }) {
-  const drillMap = new Map(drills.map((drill) => [drill.id, drill]));
-  const adjustedDrills = result.adjusted.drillIds.map((id) => drillMap.get(id)).filter(Boolean) as Drill[];
+function TodayLaunch({
+  session,
+  drills,
+  todayDrills,
+  onStart,
+  onAdjust,
+}: {
+  session: SessionPlan;
+  drills: Drill[];
+  todayDrills: Drill[];
+  onStart: () => void;
+  onAdjust: () => void;
+}) {
+  const warmup = warmupNameForSession(session);
 
   return (
-    <Card accent className="adjusted-card">
+    <>
+      <Card accent className="today-launch-card">
+        <div className="today-launch-kicker">
+          <span>Today</span>
+          <span>{formatDisplayDate(todayIso(), { weekday: "long" })}</span>
+        </div>
+        <div className="today-launch-title">
+          <span>{session.phase}</span>
+          <h2>{session.dayType}</h2>
+          <p>{session.focus}</p>
+        </div>
+
+        <div className="today-prescription">
+          <strong>
+            {session.throws} throws / {session.distanceFt} ft / {session.intent}
+          </strong>
+          <span>{session.mound ? "Mound day" : "No mound"}</span>
+          <span>Cue: {session.mainCue}</span>
+        </div>
+
+        <div className="button-stack">
+          <Button variant="primary" icon={<ClipboardCheck size={18} />} fullWidth onClick={onStart}>
+            Start Full Plan
+          </Button>
+          <Button variant="secondary" icon={<SlidersHorizontal size={18} />} fullWidth onClick={onAdjust}>
+            Adjust Full Plan
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="today-preview-card">
+        <div className="preview-line">
+          <span>Warmup</span>
+          <strong>{warmup}</strong>
+        </div>
+        <div className="preview-line">
+          <span>Plyos</span>
+          <strong>{session.plyoGuidance}</strong>
+        </div>
+        <div className="preview-line">
+          <span>Drills</span>
+          <strong>{todayDrills.length ? drillSummary(session.drillIds, drills) : "None planned"}</strong>
+        </div>
+      </Card>
+    </>
+  );
+}
+
+function AdjustedPlanReady({
+  result,
+  drills,
+  onStart,
+  onEdit,
+  onUseOriginal,
+}: {
+  result: ResultState;
+  drills: Drill[];
+  onStart: () => void;
+  onEdit: () => void;
+  onUseOriginal: () => void;
+}) {
+  const adjustedDrills = selectedDrills(result.adjusted.drillIds, drills);
+
+  return (
+    <Card accent className="adjusted-ready-card">
       <div className="section-heading">
         <div>
-          <span className="eyebrow">Adjusted session</span>
-          <h2>{result.status.title}</h2>
+          <span className="eyebrow">This is guidance, not a restriction</span>
+          <h2>Adjusted Plan Ready</h2>
         </div>
         <StatusBadge status={result.status.status} />
       </div>
-
       <p className="recommendation">{result.adjusted.recommendation}</p>
-      <p className="note">{result.adjusted.note}</p>
 
       <dl className="detail-grid">
         <div>
@@ -198,31 +239,164 @@ function AdjustedSessionCard({ result, drills }: { result: ResultState; drills: 
           <dd>{result.adjusted.warmup}</dd>
         </div>
         <div>
-          <dt>Throwing</dt>
-          <dd>{result.adjusted.throwing}</dd>
-        </div>
-        <div>
           <dt>Plyos</dt>
           <dd>{result.adjusted.plyoGuidance}</dd>
         </div>
-        <div>
-          <dt>Main cue</dt>
-          <dd>{result.adjusted.mainCue}</dd>
+        <div className="wide">
+          <dt>Throwing</dt>
+          <dd>{result.adjusted.throwing}</dd>
+        </div>
+        <div className="wide">
+          <dt>Drills</dt>
+          <dd>{adjustedDrills.map((drill) => drill.name).join(", ") || "None"}</dd>
+        </div>
+        <div className="wide">
+          <dt>Avoid</dt>
+          <dd>{result.adjusted.avoid.join(", ")}</dd>
         </div>
       </dl>
 
-      <div className="mini-columns">
-        <PlanBlock title="Avoid" lines={result.adjusted.avoid} />
-        <PlanBlock title="Log after" lines={result.adjusted.logAfter} />
+      <div className="button-stack">
+        <Button variant="primary" fullWidth onClick={onStart}>
+          Start Adjusted Plan
+        </Button>
+        <Button variant="secondary" fullWidth onClick={onEdit}>
+          Edit Check-In
+        </Button>
+        <Button variant="ghost" fullWidth onClick={onUseOriginal}>
+          Use Original Plan
+        </Button>
       </div>
-
-      {adjustedDrills.length > 0 ? (
-        <div className="card-list">
-          {adjustedDrills.map((drill) => (
-            <DrillCard key={drill.id} drill={drill} compact />
-          ))}
-        </div>
-      ) : null}
     </Card>
+  );
+}
+
+function FullPlanView({
+  session,
+  drills,
+  adjusted,
+  status = "not checked",
+  onBack,
+  onAdjust,
+  onReset,
+  onSaveLog,
+  onOpenPlan,
+}: {
+  session: SessionPlan;
+  drills: Drill[];
+  adjusted?: AdjustedSession;
+  status?: "green" | "yellow" | "red" | "not checked";
+  onBack: () => void;
+  onAdjust: () => void;
+  onReset: () => void;
+  onSaveLog: (log: TrainingLog) => void;
+  onOpenPlan: () => void;
+}) {
+  const activeDrillIds = adjusted?.drillIds ?? session.drillIds;
+  const activeDrills = selectedDrills(activeDrillIds, drills);
+  const plyos = plyoPlanForSession(session, status);
+  const throwing = adjusted?.throwing ?? `${session.throws} throws, ${session.distanceFt} ft, ${session.intent}.`;
+  const dayType = adjusted?.dayType ?? session.dayType;
+  const focus = adjusted?.goal ?? session.focus;
+  const cue = adjusted?.mainCue ?? session.mainCue;
+
+  return (
+    <div className="screen stack active-session">
+      <TodayTopper label="Full Plan" onBack={onBack} />
+
+      <Card accent className="active-session-hero">
+        <span className="eyebrow">{adjusted ? "Adjusted plan" : "Planned session"}</span>
+        <h2>Full Plan - {dayType}</h2>
+        <p>{focus}</p>
+        <strong>Cue: {cue}</strong>
+        <div className="button-row">
+          <Button variant="secondary" icon={<SlidersHorizontal size={17} />} onClick={onAdjust}>
+            Adjust Full Plan
+          </Button>
+          {adjusted ? (
+            <Button variant="ghost" icon={<RotateCcw size={17} />} onClick={onReset}>
+              Reset to Planned
+            </Button>
+          ) : null}
+          <Button variant="ghost" onClick={onOpenPlan}>
+            Edit in Plan
+          </Button>
+        </div>
+      </Card>
+
+      <AccordionCard title="1. Warmup" summary={warmupNameForSession(session, adjusted)} defaultOpen>
+        <DailySections sections={warmupDetailsForSession(session, adjusted)} />
+      </AccordionCard>
+
+      <AccordionCard title="2. Plyos" summary={adjusted?.plyoGuidance ?? plyos.summary}>
+        <ul className="tight-list">
+          {(adjusted ? [adjusted.plyoGuidance] : plyos.items).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <p className="avoid-line">Avoid: {(adjusted?.avoid ?? plyos.avoid).join(", ")}</p>
+      </AccordionCard>
+
+      <AccordionCard title="3. Mechanics Primer / Drills" summary={drillSummary(activeDrillIds, drills)}>
+        <div className="card-list compact-drill-list">
+          {activeDrills.length ? (
+            activeDrills.map((drill) => <DrillCard key={drill.id} drill={drill} compact embedded />)
+          ) : (
+            <p className="muted-line">No drills planned.</p>
+          )}
+        </div>
+      </AccordionCard>
+
+      <AccordionCard title="4. Throwing" summary={throwing}>
+        <dl className="detail-grid">
+          <div>
+            <dt>Prescription</dt>
+            <dd>{throwing}</dd>
+          </div>
+          <div>
+            <dt>Mound</dt>
+            <dd>{adjusted ? (adjusted.avoid.includes("Mound") ? "No" : session.mound ? "Yes" : "No") : session.mound ? "Yes" : "No"}</dd>
+          </div>
+          <div className="wide">
+            <dt>Main cue</dt>
+            <dd>{cue}</dd>
+          </div>
+        </dl>
+      </AccordionCard>
+
+      <AccordionCard title="5. Cooldown" summary="Post-throw response">
+        <DailySections sections={cooldownDetailsForSession()} />
+      </AccordionCard>
+
+      <AccordionCard title="6. Quick Log" summary="Fast optional save">
+        <QuickLogCard
+          session={session}
+          armStatus={status}
+          actualDayType={dayType}
+          onSave={onSaveLog}
+          embedded
+        />
+      </AccordionCard>
+    </div>
+  );
+}
+
+function DailySections({ sections }: { sections: { title: string; summary: string; items: string[] }[] }) {
+  return (
+    <div className="daily-sections">
+      {sections.map((section) => (
+        <div key={section.title} className="daily-detail-section">
+          <div>
+            <strong>{section.title}</strong>
+            <span>{section.summary}</span>
+          </div>
+          <ul className="tight-list">
+            {section.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
