@@ -1,0 +1,9 @@
+node_modules
+dist
+.tools
+.npm-cache
+.tmp
+.appdata
+.localappdata
+.DS_Store
+*.local
