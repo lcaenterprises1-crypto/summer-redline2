@@ -196,7 +196,7 @@ function TodayLaunch({
         </div>
         <div className="preview-line">
           <span>Drills</span>
-          <strong>{todayDrills.length ? todayDrills.slice(0, 3).map((drill) => drill.name).join(", ") : "None planned"}</strong>
+          <strong>{todayDrills.length ? `${Math.min(todayDrills.length, 3)} drills` : "None planned"}</strong>
         </div>
       </Card>
     </>
@@ -332,7 +332,7 @@ function FullPlanView({
         <DailySections sections={warmupDetailsForSession(session, adjusted)} />
       </AccordionCard>
 
-      <AccordionCard title="2. Plyos" summary={adjusted?.plyoGuidance ?? plyos.title}>
+      <AccordionCard title={`2. ${adjusted ? "Plyos" : plyos.title}`} summary={adjusted?.plyoGuidance ?? plyos.summary}>
         {adjusted ? (
           <>
             <ChecklistRows items={[adjusted.plyoGuidance]} />
@@ -371,7 +371,7 @@ function FullPlanView({
         <p className="stop-if-line">Stop if: tightness increases, arm speed disappears, or mechanics change.</p>
       </AccordionCard>
 
-      <AccordionCard title="5. Cooldown" summary="Post-throw response">
+      <AccordionCard title="5. Post-Throw Cooldown" summary="5-10 min">
         <DailySections sections={cooldownDetailsForSession()} />
       </AccordionCard>
 
@@ -435,7 +435,7 @@ function PlyoDetail({ plyos }: { plyos: ReturnType<typeof plyoPlanForSession> })
       ) : null}
       <div className="daily-detail-section">
         <div>
-          <strong>Work</strong>
+          <strong>{plyos.rules ? "Possible work" : "Work"}</strong>
           <span>{plyos.summary}</span>
         </div>
         <ChecklistRows items={plyos.items} />

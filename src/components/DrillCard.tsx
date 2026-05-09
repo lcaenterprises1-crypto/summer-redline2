@@ -10,6 +10,28 @@ interface DrillCardProps {
 }
 
 export function DrillCard({ drill, compact = false, embedded = false }: DrillCardProps) {
+  if (embedded && compact) {
+    return (
+      <div className="daily-drill-card">
+        <div>
+          <h3>{drill.name}</h3>
+          <span>{drill.dose}</span>
+        </div>
+        <p>Cue: {drill.cue}</p>
+        {drill.mediaUrl ? (
+          <Button
+            variant="ghost"
+            className="small-video-button"
+            icon={<ExternalLink size={15} />}
+            onClick={() => window.open(drill.mediaUrl, "_blank", "noopener,noreferrer")}
+          >
+            {drill.mediaLabel ?? "Video"}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
   const content = (
     <>
       <div className="card-topline">
