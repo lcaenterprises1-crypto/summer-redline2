@@ -71,7 +71,7 @@ export const fullThrowingWarmupDetails: DailyDetailSection[] = [
   {
     title: "Raise Temp",
     summary: "3-5 min",
-    items: ["Choose one: light jog", "Bike", "Jump rope", "Lateral shuffle series"],
+    items: ["Choose one: Light jog", "Bike", "Jump rope", "Lateral shuffle series"],
   },
   {
     title: "Dynamic Mobility",
@@ -163,14 +163,50 @@ export const noThrowRecoveryWarmupDetails: DailyDetailSection[] = [
 
 export const cooldownDetails: DailyDetailSection[] = [
   {
-    title: "Post-Throw Cooldown",
-    summary: "5-10 min",
+    title: "Walk",
+    summary: "3-5 min",
     items: [
-      "3-5 min walk",
-      "Light forearm flush",
-      "Posterior shoulder mobility",
-      "Cuff/scap work if needed",
-      "Log symptoms",
+      "Easy walk after throwing",
+      "Let heart rate and arm calm down",
+    ],
+  },
+  {
+    title: "Forearm flush",
+    summary: "Easy tissue work",
+    items: [
+      "Wrist flexion/extension - 1x15",
+      "Pronation/supination - 1x15",
+      "Light grip squeezes - 1x20",
+      "Optional forearm massage with hand or ball - 30-60 sec",
+    ],
+  },
+  {
+    title: "Back-of-shoulder mobility",
+    summary: "Gentle range",
+    items: [
+      "Cross-body shoulder stretch - 2x20 sec each side",
+      "Easy arm-across-chest breathing - 3-5 slow breaths",
+      "Sleeper stretch only if it feels good - 1-2x20 sec",
+    ],
+  },
+  {
+    title: "Optional cuff/scap reset",
+    summary: "Only if useful",
+    items: [
+      "Band external rotations - 1x12",
+      "Band pull-aparts - 1x12",
+      "Scap push-up plus - 1x10",
+      "Wall slides - 1x8",
+    ],
+  },
+  {
+    title: "Log symptoms",
+    summary: "Quick note",
+    items: [
+      "Forearm tightness",
+      "Pain during",
+      "Pain after",
+      "Next-morning response",
     ],
   },
 ];

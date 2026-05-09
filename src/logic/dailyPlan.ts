@@ -12,6 +12,8 @@ export interface PlyoPlan {
   summary: string;
   items: string[];
   avoid: string[];
+  goal?: string;
+  rules?: string[];
 }
 
 export function warmupNameForSession(session: SessionPlan, adjusted?: AdjustedSession): string {
@@ -36,64 +38,67 @@ export function cooldownDetailsForSession(): DailyDetailSection[] {
 export function plyoPlanForSession(session: SessionPlan, status: ArmStatus | "not checked" = "not checked"): PlyoPlan {
   if (status === "red") {
     return {
-      title: "Plyos",
-      summary: "Skip plyo throws today",
-      items: ["Use recovery warmup and arm care only.", "Dry lower-half patterning only if pain-free."],
-      avoid: ["Plyo throws", "Baseball throws", "Aggressive intent"],
+      title: "Plyos - Skip Throws Today",
+      summary: "No plyo throws",
+      items: ["Skip plyo throws", "Use recovery warmup and arm care only", "Dry lower-half patterning only if pain-free"],
+      avoid: ["Aggressive plyos", "High intent", "Adding volume"],
     };
   }
 
   if (status === "yellow") {
     return {
-      title: "Plyos",
-      summary: "Skip plyo throws today or use dry patterning only",
-      items: ["Dry loading or dry drift reps only.", "Recheck symptoms before any optional light catch."],
-      avoid: ["Plyo throws", "Mound", "Pulldowns", "High intent"],
+      title: "Plyos - Skip Throws Today",
+      summary: "Dry patterning only if pain-free",
+      items: ["Skip plyo throws", "Use dry patterning only if pain-free"],
+      avoid: ["Aggressive plyos", "High intent", "Adding volume"],
     };
   }
 
   if (session.week <= 2) {
     return {
-      title: "Plyos",
+      title: "Plyos - Optional Low Intent",
       summary: "Optional low-intent only",
       items: [
         "Reverse throws - 1x5",
         "Pivot picks - 1x5",
-        "Rockers or roll-ins - 1x5",
+        "Rockers / roll-ins - 1x5",
         "Intent: 40-60%",
       ],
-      avoid: ["Max effort", "Forearm/biceps tightness", "Using plyos to chase velo"],
+      avoid: ["Max effort", "Forearm/biceps tightness", "Chasing velo", "Adding extra volume"],
+      goal: "Early plyos are warmup/movement/constraint tools, not a velocity tool.",
     };
   }
 
   if (session.week <= 5) {
     return {
-      title: "Plyos",
+      title: "Mechanics Plyos",
       summary: "Low/moderate mechanics primer",
       items: ["Step-backs - 2x5", "Rockers - 2x5", "Walking windups - 2x5", "Intent: 50-70%"],
       avoid: ["High-intent plyos", "Pulldown feel", "Letting the arm lead the move"],
+      goal: "Movement patterning and lower-half rhythm, not velocity.",
     };
   }
 
   if (session.week <= 8) {
     return {
-      title: "Plyos",
+      title: "Movement Bridge Before Mound",
       summary: "Movement bridge before catch or mound",
       items: [
         "Reverse throws - 1x5",
         "Pivot picks - 1x5",
-        "Rockers/roll-ins - 1x5",
+        "Rockers / roll-ins - 1x5",
         "Walking windups - 1x5",
         "Intent: 50-70%",
       ],
       avoid: ["Velo chasing", "Adding mound intensity because plyos feel good"],
+      goal: "Get the body sequenced before mound work.",
     };
   }
 
   return {
-    title: "Plyos",
+    title: "Higher-Intent Plyos Only If Earned",
     summary: "Higher-intent plyos only if earned",
-    items: [
+    rules: [
       "Green day only",
       "Previous week clean",
       "1x/week max at first",
@@ -101,7 +106,9 @@ export function plyoPlanForSession(session: SessionPlan, status: ArmStatus | "no
       "No forearm/biceps tightness",
       "Do not pair with another max-intent day early",
     ],
+    items: ["Step-backs - 2x5", "Rockers - 2x5", "Walking windups - 2x5", "Intent: phase dependent, never reckless"],
     avoid: ["Stacking max intent", "Plyos after symptoms appear", "Chasing a number"],
+    goal: "Early high-intent work is earned. Never use plyos to force velocity.",
   };
 }
 

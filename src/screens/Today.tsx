@@ -41,6 +41,7 @@ export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }:
   const [activeAdjusted, setActiveAdjusted] = useState(false);
 
   const todayDrills = useMemo(() => selectedDrills(session.drillIds, drills), [drills, session.drillIds]);
+  const todayPlyos = useMemo(() => plyoPlanForSession(session), [session]);
 
   const handleCheckIn = (checkIn: CheckIn) => {
     const status = evaluateArmStatus(checkIn);
@@ -113,6 +114,7 @@ export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }:
         session={session}
         drills={drills}
         todayDrills={todayDrills}
+        plyoSummary={todayPlyos.summary}
         onStart={() => {
           setActiveAdjusted(false);
           setMode("active");
@@ -139,12 +141,14 @@ function TodayLaunch({
   session,
   drills,
   todayDrills,
+  plyoSummary,
   onStart,
   onAdjust,
 }: {
   session: SessionPlan;
   drills: Drill[];
   todayDrills: Drill[];
+  plyoSummary: string;
   onStart: () => void;
   onAdjust: () => void;
 }) {
@@ -188,11 +192,11 @@ function TodayLaunch({
         </div>
         <div className="preview-line">
           <span>Plyos</span>
-          <strong>{session.plyoGuidance}</strong>
+          <strong>{plyoSummary}</strong>
         </div>
         <div className="preview-line">
           <span>Drills</span>
-          <strong>{todayDrills.length ? drillSummary(session.drillIds, drills) : "None planned"}</strong>
+          <strong>{todayDrills.length ? todayDrills.slice(0, 3).map((drill) => drill.name).join(", ") : "None planned"}</strong>
         </div>
       </Card>
     </>
@@ -328,13 +332,15 @@ function FullPlanView({
         <DailySections sections={warmupDetailsForSession(session, adjusted)} />
       </AccordionCard>
 
-      <AccordionCard title="2. Plyos" summary={adjusted?.plyoGuidance ?? plyos.summary}>
-        <ul className="tight-list">
-          {(adjusted ? [adjusted.plyoGuidance] : plyos.items).map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        <p className="avoid-line">Avoid: {(adjusted?.avoid ?? plyos.avoid).join(", ")}</p>
+      <AccordionCard title="2. Plyos" summary={adjusted?.plyoGuidance ?? plyos.title}>
+        {adjusted ? (
+          <>
+            <ChecklistRows items={[adjusted.plyoGuidance]} />
+            <p className="avoid-line">Avoid: {adjusted.avoid.join(", ")}</p>
+          </>
+        ) : (
+          <PlyoDetail plyos={plyos} />
+        )}
       </AccordionCard>
 
       <AccordionCard title="3. Mechanics Primer / Drills" summary={drillSummary(activeDrillIds, drills)}>
@@ -362,6 +368,7 @@ function FullPlanView({
             <dd>{cue}</dd>
           </div>
         </dl>
+        <p className="stop-if-line">Stop if: tightness increases, arm speed disappears, or mechanics change.</p>
       </AccordionCard>
 
       <AccordionCard title="5. Cooldown" summary="Post-throw response">
@@ -390,13 +397,50 @@ function DailySections({ sections }: { sections: { title: string; summary: strin
             <strong>{section.title}</strong>
             <span>{section.summary}</span>
           </div>
-          <ul className="tight-list">
-            {section.items.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          <ChecklistRows items={section.items} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function ChecklistRows({ items }: { items: string[] }) {
+  return (
+    <div className="checklist-rows">
+      {items.map((item) => (
+        <label key={item} className="check-row">
+          <input type="checkbox" />
+          <span>{item}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function PlyoDetail({ plyos }: { plyos: ReturnType<typeof plyoPlanForSession> }) {
+  return (
+    <div className="plyo-detail">
+      <div>
+        <h3>{plyos.title}</h3>
+        {plyos.goal ? <p>{plyos.goal}</p> : null}
+      </div>
+      {plyos.rules ? (
+        <div className="daily-detail-section">
+          <div>
+            <strong>Rules</strong>
+            <span>Earn it</span>
+          </div>
+          <ChecklistRows items={plyos.rules} />
+        </div>
+      ) : null}
+      <div className="daily-detail-section">
+        <div>
+          <strong>Work</strong>
+          <span>{plyos.summary}</span>
+        </div>
+        <ChecklistRows items={plyos.items} />
+      </div>
+      <p className="avoid-line">Avoid: {plyos.avoid.join(", ")}</p>
     </div>
   );
 }
