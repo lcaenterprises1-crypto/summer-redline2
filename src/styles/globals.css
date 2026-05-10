@@ -13,6 +13,8 @@
   --yellow: #f5b83d;
   --green: #45d483;
   --shadow: 0 20px 40px rgba(0, 0, 0, 0.28);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--bg);
@@ -25,12 +27,14 @@
 
 html {
   min-height: 100%;
+  min-height: 100dvh;
   background: var(--bg);
   overflow-x: hidden;
 }
 
 body {
   min-height: 100%;
+  min-height: 100dvh;
   margin: 0;
   background:
     radial-gradient(circle at top left, rgba(255, 75, 31, 0.16), transparent 320px),
@@ -82,14 +86,16 @@ main {
   width: min(100%, 760px);
   max-width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: calc(14px + env(safe-area-inset-top)) 14px calc(132px + env(safe-area-inset-bottom));
+  padding: calc(28px + var(--safe-top)) 14px calc(156px + var(--safe-bottom));
   overflow-x: hidden;
 }
 
 .screen {
   width: 100%;
   max-width: 100%;
+  padding-bottom: 12px;
   overflow-x: hidden;
 }
 
@@ -745,14 +751,15 @@ main {
 }
 
 .roadmap-days {
-  padding: 0 10px 10px;
+  gap: 8px;
+  padding: 0 8px 8px;
 }
 
 .roadmap-day-card {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px 10px;
-  padding: 9px;
+  gap: 5px 8px;
+  padding: 7px 8px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.16);
@@ -768,14 +775,15 @@ main {
 
 .roadmap-day-card strong {
   min-width: 0;
-  font-size: 1rem;
+  font-size: 0.96rem;
+  line-height: 1.18;
   overflow-wrap: anywhere;
 }
 
 .roadmap-day-card p {
   grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   line-height: 1.25;
 }
 
@@ -837,17 +845,17 @@ main {
 .day-card-actions {
   grid-column: 1 / -1;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .day-card-actions button {
-  min-height: 32px;
+  min-height: 28px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 5px 8px;
   background: rgba(255, 255, 255, 0.035);
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 800;
 }
 
@@ -935,8 +943,20 @@ main {
 }
 
 .quick-log-form .quick-log-notes,
+.quick-log-form .quick-log-notes-control,
 .quick-log-form .button {
   grid-column: 1 / -1;
+}
+
+.quick-log-notes-control button {
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #ffd5c3;
+  font-size: 0.84rem;
+  font-weight: 850;
 }
 
 .quick-log-metrics {
@@ -1569,7 +1589,7 @@ input[type="range"] {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
-  padding: 9px 10px calc(9px + env(safe-area-inset-bottom));
+  padding: 9px 10px calc(11px + var(--safe-bottom));
   border-top: 1px solid var(--line);
   background: rgba(12, 12, 15, 0.94);
   backdrop-filter: blur(18px);

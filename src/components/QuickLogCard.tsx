@@ -23,10 +23,12 @@ export function QuickLogCard({
   const initial = useMemo(() => createQuickLog(session, armStatus, actualDayType), [actualDayType, armStatus, session]);
   const [form, setForm] = useState(initial);
   const [saved, setSaved] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     setForm(initial);
     setSaved(false);
+    setShowNotes(Boolean(initial.notes));
   }, [initial]);
 
   const update = <K extends keyof TrainingLog>(key: K, value: TrainingLog[K]) => {
@@ -76,10 +78,24 @@ export function QuickLogCard({
           onChange={(value) => update("painDuring", value)}
         />
 
-        <label className="field quick-log-notes">
-          <span>Notes <small>optional</small></span>
-          <textarea rows={2} value={form.notes} onChange={(event) => update("notes", event.target.value)} />
-        </label>
+        <div className="quick-log-notes-control">
+          <button
+            type="button"
+            onClick={() => {
+              if (form.notes.trim()) return;
+              setShowNotes((current) => !current);
+            }}
+          >
+            {form.notes.trim() ? "Notes added" : showNotes ? "Hide notes" : "+ Add notes"}
+          </button>
+        </div>
+
+        {showNotes || form.notes.trim() ? (
+          <label className="field quick-log-notes">
+            <span>Notes <small>optional</small></span>
+            <textarea rows={2} value={form.notes} onChange={(event) => update("notes", event.target.value)} />
+          </label>
+        ) : null}
         <Button type="submit" variant="primary" icon={<Save size={18} />} fullWidth>
           Save Log
         </Button>

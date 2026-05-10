@@ -38,10 +38,10 @@ export function cooldownDetailsForSession(): DailyDetailSection[] {
 export function plyoPlanForSession(session: SessionPlan, status: ArmStatus | "not checked" = "not checked"): PlyoPlan {
   if (status === "red") {
     return {
-      title: "Plyos - Skip Throws Today",
-      summary: "Protect the arm, train the body.",
-      items: ["Dry loading pattern - 2x5", "Dry drift reps - 2x5", "Low-intent dry movement only"],
-      avoid: ["Aggressive plyos", "High intent", "Adding volume"],
+      title: "Plyos - No Throwing Plyos",
+      summary: "Recovery only.",
+      items: ["Arm-care circuit", "Dry movement only if pain-free"],
+      avoid: ["Plyo throws", "High intent", "Adding volume"],
     };
   }
 

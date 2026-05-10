@@ -92,6 +92,7 @@ export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }:
       <div className="screen stack today-flow">
         <TodayTopper label="Adjusted Plan Ready" onBack={() => setMode("overview")} />
         <AdjustedPlanReady
+          session={session}
           result={result}
           drills={drills}
           onStart={() => {
@@ -204,12 +205,14 @@ function TodayLaunch({
 }
 
 function AdjustedPlanReady({
+  session,
   result,
   drills,
   onStart,
   onEdit,
   onUseOriginal,
 }: {
+  session: SessionPlan;
   result: ResultState;
   drills: Drill[];
   onStart: () => void;
@@ -217,6 +220,7 @@ function AdjustedPlanReady({
   onUseOriginal: () => void;
 }) {
   const adjustedDrills = selectedDrills(result.adjusted.drillIds, drills);
+  const adjustedPlyos = plyoPlanForSession(session, result.status.status);
 
   return (
     <Card accent className="adjusted-ready-card">
@@ -244,7 +248,7 @@ function AdjustedPlanReady({
         </div>
         <div>
           <dt>Plyos</dt>
-          <dd>{result.adjusted.plyoGuidance}</dd>
+          <dd>{adjustedPlyos.title}: {adjustedPlyos.summary}</dd>
         </div>
         <div className="wide">
           <dt>Throwing</dt>
@@ -332,15 +336,8 @@ function FullPlanView({
         <DailySections sections={warmupDetailsForSession(session, adjusted)} />
       </AccordionCard>
 
-      <AccordionCard title={`2. ${adjusted ? "Plyos" : plyos.title}`} summary={adjusted?.plyoGuidance ?? plyos.summary}>
-        {adjusted ? (
-          <>
-            <ChecklistRows items={[adjusted.plyoGuidance]} />
-            <p className="avoid-line">Avoid: {adjusted.avoid.join(", ")}</p>
-          </>
-        ) : (
-          <PlyoDetail plyos={plyos} />
-        )}
+      <AccordionCard title={`2. ${plyos.title}`} summary={plyos.summary}>
+        <PlyoDetail plyos={plyos} />
       </AccordionCard>
 
       <AccordionCard title="3. Mechanics Primer / Drills" summary={drillSummary(activeDrillIds, drills)}>
