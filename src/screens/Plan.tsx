@@ -4,6 +4,7 @@ import type { Drill, SessionPlan, Settings } from "../types";
 import { formatDisplayDate, generateDefaultPlan, todayIso, weekFromDate } from "../logic/schedule";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { NumericInput } from "../components/NumericInput";
 
 interface PlanProps {
   settings: Settings;
@@ -17,46 +18,58 @@ interface PlanProps {
 interface PhaseMeta {
   id: string;
   title: string;
+  pathLabel: string;
   weeks: [number, number];
   shortGoal: string;
   detailGoal: string;
+  unlocks: string[];
 }
 
 const phaseRoadmap: PhaseMeta[] = [
   {
     id: "phase-1",
     title: "Restore + Patterning",
+    pathLabel: "Restore",
     weeks: [1, 2],
-    shortGoal: "Arm tolerance + clean lower-half feel",
+    shortGoal: "Clean arm + lower-half feel",
     detailGoal: "Arm feels clean, low-intent throwing returns, lower-half feel begins.",
+    unlocks: ["Consistent catch routine", "Lower-half foundation", "Clean arm baseline"],
   },
   {
     id: "phase-2",
     title: "Capacity + Mechanics",
+    pathLabel: "Capacity",
     weeks: [3, 5],
-    shortGoal: "Build throwing volume and lower-half pattern",
+    shortGoal: "Build throwing volume",
     detailGoal: "Build throwing volume, keep arm clean, improve lower-half pattern.",
+    unlocks: ["Longer catch", "Medium build days", "More drill variety"],
   },
   {
     id: "phase-3",
-    title: "Flat-Ground + Mound Reintroduction",
+    title: "Mound Reintroduction",
+    pathLabel: "Mound",
     weeks: [6, 8],
-    shortGoal: "Transfer mechanics into controlled mound work",
+    shortGoal: "Transfer mechanics to slope",
     detailGoal: "Transfer mechanics into controlled pitching without chasing velo.",
+    unlocks: ["Controlled mound fastballs", "Low-intent bullpen rhythm"],
   },
   {
     id: "phase-4",
     title: "Mound Transfer + Controlled Velo",
+    pathLabel: "Redline",
     weeks: [9, 11],
     shortGoal: "Raise intent while staying clean",
     detailGoal: "Begin converting athleticism and arm speed to mound velo while protecting the arm.",
+    unlocks: ["Controlled velo build", "Higher mound transfer"],
   },
   {
     id: "phase-5",
-    title: "Higher Intent + Maintain Health",
+    title: "Higher Intent + Maintain",
+    pathLabel: "Finish",
     weeks: [12, 13],
-    shortGoal: "Sharpen mound output and maintain health",
+    shortGoal: "Sharpen output",
     detailGoal: "Sharpen mound output while keeping the arm healthy.",
+    unlocks: ["Stronger bullpens", "Secondary pitches", "Possible high-intent exposure if earned"],
   },
 ];
 
@@ -67,6 +80,7 @@ export function Plan({ settings, plan, drills, onUpdateSettings, onUpdatePlan, o
   const currentWeek = Math.min(13, Math.max(1, weekFromDate(todayIso(), settings.startDate)));
   const currentPhase = phaseRoadmap.find((phase) => currentWeek >= phase.weeks[0] && currentWeek <= phase.weeks[1]) ?? phaseRoadmap[0];
   const nextMilestone = milestoneForWeek(currentWeek);
+  const onDeck = onDeckForWeek(currentWeek);
   const progress = Math.min(100, Math.max(0, (currentWeek / 13) * 100));
   const planByWeek = useMemo(() => groupByWeek(plan), [plan]);
 
@@ -96,8 +110,11 @@ export function Plan({ settings, plan, drills, onUpdateSettings, onUpdatePlan, o
         currentWeek={currentWeek}
         currentPhase={currentPhase}
         nextMilestone={nextMilestone}
+        onDeck={onDeck}
         progress={progress}
       />
+
+      <RoadmapMotivation currentWeek={currentWeek} />
 
       <Card className="roadmap-settings">
         <label className="field">
@@ -147,27 +164,103 @@ function RoadmapHero({
   currentWeek,
   currentPhase,
   nextMilestone,
+  onDeck,
   progress,
 }: {
   currentWeek: number;
   currentPhase: PhaseMeta;
   nextMilestone: string;
+  onDeck: string;
   progress: number;
 }) {
   return (
     <Card accent className="roadmap-hero">
       <div className="card-topline">
-        <span>Summer Roadmap</span>
-        <span>Week {currentWeek} of 13</span>
+        <span>Summer Redline Roadmap</span>
+        <span>Week {currentWeek} / 13</span>
       </div>
-      <h2>{currentPhase.title}</h2>
-      <p>{currentPhase.detailGoal}</p>
+      <h2>Phase {phaseRoadmap.indexOf(currentPhase) + 1}: {currentPhase.title}</h2>
+      <div className="roadmap-focus-grid">
+        <div>
+          <span>Current Focus</span>
+          <strong>{currentPhase.shortGoal}</strong>
+        </div>
+        <div>
+          <span>On Deck</span>
+          <strong>{onDeck}</strong>
+        </div>
+      </div>
+      <div className="roadmap-progress-label">
+        <span>Build Progress</span>
+        <strong>{Math.round(progress)}%</strong>
+      </div>
       <div className="roadmap-progress" aria-label={`Week ${currentWeek} of 13`}>
         <span style={{ width: `${progress}%` }} />
       </div>
+      <PhasePath currentWeek={currentWeek} />
       <div className="roadmap-milestone">
-        <span>Next Milestone</span>
+        <span>Next Unlock</span>
         <strong>{nextMilestone}</strong>
+      </div>
+    </Card>
+  );
+}
+
+function PhasePath({ currentWeek }: { currentWeek: number }) {
+  return (
+    <div className="phase-path" aria-label="Summer phase path">
+      {phaseRoadmap.map((phase, index) => {
+        const status = phaseStatus(phase, currentWeek).toLowerCase();
+        return (
+          <div key={phase.id} className={`phase-path-node ${status}`}>
+            <span>{status === "completed" ? "OK" : index + 1}</span>
+            <small>{phase.pathLabel}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RoadmapMotivation({ currentWeek }: { currentWeek: number }) {
+  const milestones = [
+    { week: 3, label: "Capacity Build Begins" },
+    { week: 6, label: "Flat-Ground / Dry Mound Transfer" },
+    { week: 7, label: "First Low-Intent Mound Day" },
+    { week: 9, label: "Controlled Velo Build" },
+    { week: 12, label: "Higher Intent Phase" },
+  ];
+  const badges = [
+    { week: 1, label: "Held the Plan" },
+    { week: 2, label: "Back-Leg Feel" },
+    { week: 3, label: "Capacity Build" },
+    { week: 5, label: "Green Week" },
+    { week: 7, label: "Mound Reintro" },
+    { week: 9, label: "Velo Build Earned" },
+    { week: 12, label: "Finish Strong" },
+  ];
+
+  return (
+    <Card className="roadmap-motivation">
+      <div className="section-heading compact-heading">
+        <div>
+          <span className="eyebrow">Development Path</span>
+          <h2>Milestones</h2>
+        </div>
+      </div>
+      <div className="milestone-strip">
+        {milestones.map((milestone) => (
+          <span key={milestone.label} className={currentWeek >= milestone.week ? "earned" : ""}>
+            W{milestone.week} - {milestone.label}
+          </span>
+        ))}
+      </div>
+      <div className="badge-grid">
+        {badges.map((badge) => (
+          <span key={badge.label} className={currentWeek >= badge.week ? "earned" : ""}>
+            {badge.label}
+          </span>
+        ))}
       </div>
     </Card>
   );
@@ -201,6 +294,12 @@ function PhaseCard({
         <ChevronDown size={19} />
       </button>
       <p>{phase.shortGoal}</p>
+      <div className="phase-unlocks">
+        <span>Unlocks</span>
+        {phase.unlocks.map((unlock) => (
+          <em key={unlock}>{unlock}</em>
+        ))}
+      </div>
       {open ? (
         <div className="week-list">
           {weeks.map(({ week, sessions }) => (
@@ -305,6 +404,15 @@ function milestoneForWeek(week: number): string {
   return "Finish clean and maintain health";
 }
 
+function onDeckForWeek(week: number): string {
+  if (week < 3) return "Capacity Build - Week 3";
+  if (week < 6) return "Flat-Ground Transfer - Week 6";
+  if (week < 7) return "First Low-Intent Mound - Week 7";
+  if (week < 9) return "Controlled Velo Build - Week 9";
+  if (week < 12) return "Higher Intent Phase - Week 12";
+  return "Finish clean through Week 13";
+}
+
 function weekTitle(week: number): string {
   if (week <= 2) return "Restore";
   if (week <= 5) return "Capacity Build";
@@ -386,7 +494,14 @@ function SessionEditor({
           </label>
           <label className="field">
             <span>Week</span>
-            <input type="number" min={1} max={13} value={draft.week} onChange={(event) => update("week", Number(event.target.value))} />
+            <NumericInput
+              ariaLabel="Week"
+              fallback={1}
+              max={13}
+              min={1}
+              value={draft.week}
+              onChange={(value) => update("week", value)}
+            />
           </label>
         </div>
 

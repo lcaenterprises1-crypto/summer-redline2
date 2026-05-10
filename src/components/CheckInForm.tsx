@@ -4,6 +4,7 @@ import type { CheckIn } from "../types";
 import { emptyCheckIn, intentPreferences, mechanicalIssues } from "../logic/armStatus";
 import { Button } from "./Button";
 import { Card } from "./Card";
+import { NumericInput } from "./NumericInput";
 
 interface CheckInFormProps {
   onSubmit: (checkIn: CheckIn) => void;
@@ -27,67 +28,76 @@ export function CheckInForm({ onSubmit, compact = false }: CheckInFormProps) {
       </div>
 
       <form
-        className={`stack ${compact ? "compact-form" : ""}`}
+        className={`compact-checkin-form ${compact ? "compact-form" : ""}`}
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(form);
         }}
       >
-        <RangeField
-          label="Forearm / brachioradialis tightness"
-          min={0}
-          max={10}
-          value={form.forearmTightness}
-          onChange={(value) => update("forearmTightness", value)}
-        />
-        <RangeField
-          label="Biceps / anterior elbow tightness"
-          min={0}
-          max={10}
-          value={form.bicepsTightness}
-          onChange={(value) => update("bicepsTightness", value)}
-        />
-        <RangeField
-          label="Elbow pain"
-          min={0}
-          max={10}
-          value={form.elbowPain}
-          onChange={(value) => update("elbowPain", value)}
-        />
-        <RangeField
-          label="Shoulder pain"
-          min={0}
-          max={10}
-          value={form.shoulderPain}
-          onChange={(value) => update("shoulderPain", value)}
-        />
-        <RangeField
-          label="Arm freshness"
-          min={1}
-          max={5}
-          value={form.armFreshness}
-          onChange={(value) => update("armFreshness", value)}
-        />
-        <label className="field">
-          <span>Sleep hours</span>
-          <input
-            type="number"
-            min={0}
-            max={14}
-            step={0.25}
-            value={form.sleepHours}
-            onChange={(event) => update("sleepHours", Number(event.target.value))}
-          />
-        </label>
-        <RangeField
-          label="Body fatigue"
-          min={1}
-          max={5}
-          value={form.bodyFatigue}
-          onChange={(value) => update("bodyFatigue", value)}
-        />
+        <div className="checkin-group">
+          <h3>Arm Symptoms</h3>
+          <div className="compact-number-grid">
+            <NumberCheckInField
+              label="Forearm"
+              value={form.forearmTightness}
+              max={10}
+              onChange={(value) => update("forearmTightness", value)}
+            />
+            <NumberCheckInField
+              label="Biceps"
+              value={form.bicepsTightness}
+              max={10}
+              onChange={(value) => update("bicepsTightness", value)}
+            />
+            <NumberCheckInField
+              label="Elbow"
+              value={form.elbowPain}
+              max={10}
+              onChange={(value) => update("elbowPain", value)}
+            />
+            <NumberCheckInField
+              label="Shoulder"
+              value={form.shoulderPain}
+              max={10}
+              onChange={(value) => update("shoulderPain", value)}
+            />
+          </div>
+        </div>
 
-        <div className="switch-grid">
+        <div className="checkin-group">
+          <h3>Readiness</h3>
+          <div className="compact-number-grid readiness-grid">
+            <NumberCheckInField
+              label="Freshness"
+              value={form.armFreshness}
+              min={1}
+              max={5}
+              fallback={4}
+              onChange={(value) => update("armFreshness", value)}
+            />
+            <NumberCheckInField
+              label="Sleep"
+              value={form.sleepHours}
+              max={14}
+              step={0.25}
+              inputMode="decimal"
+              fallback={8}
+              onChange={(value) => update("sleepHours", value)}
+            />
+            <NumberCheckInField
+              label="Fatigue"
+              value={form.bodyFatigue}
+              min={1}
+              max={5}
+              fallback={2}
+              onChange={(value) => update("bodyFatigue", value)}
+            />
+          </div>
+        </div>
+
+        <div className="checkin-group">
+          <h3>Red Flags</h3>
+          <div className="switch-grid compact-switches">
           <SwitchField
             label="Hot/red hand or forearm?"
             checked={form.hotRedHandForearm}
@@ -103,61 +113,80 @@ export function CheckInForm({ onSubmit, compact = false }: CheckInFormProps) {
             checked={form.nextMorningSymptoms}
             onChange={(value) => update("nextMorningSymptoms", value)}
           />
+          </div>
         </div>
 
-        <label className="field">
-          <span>Main mechanical issue today</span>
-          <select
-            value={form.mechanicalIssue}
-            onChange={(event) => update("mechanicalIssue", event.target.value)}
-          >
-            {mechanicalIssues.map((issue) => (
-              <option key={issue}>{issue}</option>
-            ))}
-          </select>
-        </label>
+        <div className="checkin-group">
+          <h3>Mechanical Feel</h3>
+          <label className="field">
+            <span>Main issue today</span>
+            <select
+              value={form.mechanicalIssue}
+              onChange={(event) => update("mechanicalIssue", event.target.value)}
+            >
+              {mechanicalIssues.map((issue) => (
+                <option key={issue}>{issue}</option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-        <label className="field">
-          <span>Intent preference</span>
-          <select
-            value={form.intentPreference}
-            onChange={(event) => update("intentPreference", event.target.value)}
-          >
-            {intentPreferences.map((preference) => (
-              <option key={preference}>{preference}</option>
-            ))}
-          </select>
-        </label>
+        <div className="checkin-group">
+          <h3>Intent</h3>
+          <label className="field">
+            <span>Preference</span>
+            <select
+              value={form.intentPreference}
+              onChange={(event) => update("intentPreference", event.target.value)}
+            >
+              {intentPreferences.map((preference) => (
+                <option key={preference}>{preference}</option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <Button type="submit" variant="primary" icon={<Activity size={18} />} fullWidth>
-          Build Adjusted Session
+          Build Adjusted Plan
         </Button>
       </form>
     </Card>
   );
 }
 
-interface RangeFieldProps {
+interface NumberCheckInFieldProps {
   label: string;
-  min: number;
+  min?: number;
   max: number;
   value: number;
+  fallback?: number;
+  step?: number;
+  inputMode?: "numeric" | "decimal";
   onChange: (value: number) => void;
 }
 
-function RangeField({ label, min, max, value, onChange }: RangeFieldProps) {
+function NumberCheckInField({
+  label,
+  min = 0,
+  max,
+  value,
+  fallback = 0,
+  step,
+  inputMode = "numeric",
+  onChange,
+}: NumberCheckInFieldProps) {
   return (
-    <label className="range-field">
-      <span>
-        {label}
-        <strong>{value}</strong>
-      </span>
-      <input
-        type="range"
-        min={min}
+    <label className="compact-number-field">
+      <span>{label}</span>
+      <NumericInput
+        ariaLabel={label}
+        fallback={fallback}
+        inputMode={inputMode}
         max={max}
+        min={min}
+        step={step}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={onChange}
       />
     </label>
   );

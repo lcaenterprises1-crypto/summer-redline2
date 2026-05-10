@@ -428,6 +428,43 @@ main {
   font-size: 1.45rem;
 }
 
+.roadmap-focus-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.roadmap-focus-grid > div,
+.roadmap-progress-label {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.roadmap-focus-grid span,
+.roadmap-progress-label span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.roadmap-focus-grid strong,
+.roadmap-progress-label strong {
+  min-width: 0;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.roadmap-progress-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .roadmap-progress {
   height: 10px;
   overflow: hidden;
@@ -440,6 +477,69 @@ main {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+.phase-path {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  padding: 6px 0 2px;
+}
+
+.phase-path::before {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 21px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.phase-path-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.phase-path-node span {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: #16161a;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.phase-path-node small {
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.phase-path-node.completed span {
+  border-color: rgba(69, 212, 131, 0.38);
+  background: rgba(69, 212, 131, 0.16);
+  color: #b8ffd1;
+}
+
+.phase-path-node.current span {
+  border-color: rgba(255, 138, 61, 0.75);
+  background: rgba(255, 75, 31, 0.24);
+  color: #ffe1d4;
+  box-shadow: 0 0 18px rgba(255, 75, 31, 0.28);
 }
 
 .roadmap-milestone {
@@ -465,6 +565,40 @@ main {
   box-shadow: none;
 }
 
+.roadmap-motivation {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  box-shadow: none;
+}
+
+.milestone-strip,
+.badge-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.milestone-strip span,
+.badge-grid span {
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.milestone-strip span.earned,
+.badge-grid span.earned {
+  border-color: rgba(255, 138, 61, 0.4);
+  background: rgba(255, 75, 31, 0.14);
+  color: #ffd5c3;
+}
+
 .subdued-actions .button {
   min-height: 42px;
   padding: 10px 12px;
@@ -485,8 +619,34 @@ main {
 }
 
 .phase-card > p {
-  padding: 0 14px 14px;
+  padding: 0 14px;
   color: var(--muted);
+}
+
+.phase-unlocks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 0 14px 12px;
+}
+
+.phase-unlocks span {
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.phase-unlocks em {
+  border: 1px solid rgba(255, 138, 61, 0.18);
+  border-radius: 999px;
+  padding: 6px 8px;
+  background: rgba(255, 138, 61, 0.06);
+  color: #f1f1f3;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 760;
 }
 
 .phase-current {
@@ -759,7 +919,7 @@ main {
 
 .quick-log-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 7px;
 }
 
@@ -779,12 +939,99 @@ main {
   grid-column: 1 / -1;
 }
 
+.quick-log-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.compact-number-field {
+  display: grid;
+  gap: 5px;
+}
+
+.compact-number-field span,
+.quick-log-block > span,
+.score-chip-group > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.compact-number-field input {
+  min-height: 40px;
+  padding: 8px 9px;
+  text-align: center;
+  font-weight: 850;
+}
+
+.quick-number-field input {
+  font-size: 1rem;
+}
+
+.quick-log-block {
+  display: grid;
+  gap: 6px;
+}
+
+.status-segmented,
+.score-chip-group > div {
+  display: grid;
+  gap: 6px;
+}
+
+.status-segmented {
+  grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
+}
+
+.status-segmented button,
+.score-chip-group button {
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 6px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.status-segmented button.active,
+.score-chip-group button.active {
+  border-color: rgba(255, 138, 61, 0.58);
+  background: rgba(255, 75, 31, 0.18);
+  color: #ffe1d4;
+}
+
+.score-chip-group {
+  display: grid;
+  gap: 6px;
+}
+
+.score-chip-group > div {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.quick-log-notes small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: none;
+}
+
 .compact-heading h2 {
   font-size: 1.18rem;
 }
 
 .compact-checkin {
   padding: 13px;
+}
+
+.compact-checkin-form {
+  display: grid;
+  gap: 10px;
 }
 
 .compact-form {
@@ -803,6 +1050,40 @@ main {
 .compact-form .switch-field {
   min-height: 44px;
   padding: 10px;
+}
+
+.checkin-group {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.checkin-group h3 {
+  color: #f1f1f3;
+  font-size: 0.95rem;
+}
+
+.compact-number-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.readiness-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.compact-switches {
+  gap: 7px;
+}
+
+.compact-switches .switch-field {
+  min-height: 42px;
+  padding: 9px 10px;
+  font-size: 0.9rem;
 }
 
 .card-accent {

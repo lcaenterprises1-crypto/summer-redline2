@@ -4,6 +4,7 @@ import type { Drill, SessionPlan, TrainingLog } from "../types";
 import { todayIso } from "../logic/schedule";
 import { Button } from "./Button";
 import { Card } from "./Card";
+import { NumericInput } from "./NumericInput";
 
 interface LogFormProps {
   drills: Drill[];
@@ -232,13 +233,7 @@ function NumberField({ label, value, onChange, max }: NumberFieldProps) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input
-        type="number"
-        min={0}
-        max={max}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
+      <NumericInput min={0} max={max} value={value} onChange={onChange} ariaLabel={label} />
     </label>
   );
 }

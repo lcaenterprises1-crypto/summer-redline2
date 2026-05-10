@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ArmStatus, SessionPlan, TrainingLog } from "../types";
 import { Button } from "./Button";
 import { Card } from "./Card";
+import { NumericInput } from "./NumericInput";
 
 interface QuickLogCardProps {
   session: SessionPlan;
@@ -50,44 +51,34 @@ export function QuickLogCard({
           setSaved(true);
         }}
       >
-        <label className="field">
-          <span>Total throws</span>
-          <input type="number" min={0} value={form.totalThrows} onChange={(event) => update("totalThrows", Number(event.target.value))} />
-        </label>
-        <label className="field">
-          <span>Max distance</span>
-          <input type="number" min={0} value={form.maxDistanceFt} onChange={(event) => update("maxDistanceFt", Number(event.target.value))} />
-        </label>
-        <label className="field">
-          <span>Mound pitches</span>
-          <input type="number" min={0} value={form.moundPitches} onChange={(event) => update("moundPitches", Number(event.target.value))} />
-        </label>
-        <label className="field">
-          <span>Arm status</span>
-          <select value={form.armStatus} onChange={(event) => update("armStatus", event.target.value as TrainingLog["armStatus"])}>
-            <option>not checked</option>
-            <option>green</option>
-            <option>yellow</option>
-            <option>red</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>Forearm after</span>
-          <input
-            type="number"
-            min={0}
-            max={10}
-            value={form.forearmTightnessAfter}
-            onChange={(event) => update("forearmTightnessAfter", Number(event.target.value))}
+        <div className="quick-log-metrics">
+          <QuickNumberField label="Throws" value={form.totalThrows} onChange={(value) => update("totalThrows", value)} />
+          <QuickNumberField label="Distance" value={form.maxDistanceFt} onChange={(value) => update("maxDistanceFt", value)} />
+          <QuickNumberField label="Mound" value={form.moundPitches} onChange={(value) => update("moundPitches", value)} />
+        </div>
+
+        <div className="quick-log-block">
+          <span>Arm</span>
+          <SegmentedStatus
+            value={form.armStatus}
+            onChange={(value) => update("armStatus", value)}
           />
-        </label>
-        <label className="field">
-          <span>Pain during</span>
-          <input type="number" min={0} max={10} value={form.painDuring} onChange={(event) => update("painDuring", Number(event.target.value))} />
-        </label>
+        </div>
+
+        <ScoreChipGroup
+          label="Forearm after"
+          value={form.forearmTightnessAfter}
+          onChange={(value) => update("forearmTightnessAfter", value)}
+        />
+        <ScoreChipGroup
+          label="Pain during"
+          value={form.painDuring}
+          onChange={(value) => update("painDuring", value)}
+        />
+
         <label className="field quick-log-notes">
-          <span>Notes</span>
-          <textarea rows={3} value={form.notes} onChange={(event) => update("notes", event.target.value)} />
+          <span>Notes <small>optional</small></span>
+          <textarea rows={2} value={form.notes} onChange={(event) => update("notes", event.target.value)} />
         </label>
         <Button type="submit" variant="primary" icon={<Save size={18} />} fullWidth>
           Save Log
@@ -108,6 +99,76 @@ export function QuickLogCard({
   );
 }
 
+function QuickNumberField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="compact-number-field quick-number-field">
+      <span>{label}</span>
+      <NumericInput ariaLabel={label} min={0} value={value} onChange={onChange} />
+    </label>
+  );
+}
+
+function SegmentedStatus({
+  value,
+  onChange,
+}: {
+  value: TrainingLog["armStatus"];
+  onChange: (value: TrainingLog["armStatus"]) => void;
+}) {
+  const options: TrainingLog["armStatus"][] = ["not checked", "green", "yellow", "red"];
+
+  return (
+    <div className="status-segmented" role="group" aria-label="Arm status">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          className={value === option ? "active" : ""}
+          onClick={() => onChange(option)}
+        >
+          {option === "not checked" ? "Not checked" : option}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ScoreChipGroup({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="score-chip-group">
+      <span>{label}</span>
+      <div role="group" aria-label={label}>
+        {[0, 1, 2, 3, 4, 5].map((score) => (
+          <button
+            key={score}
+            type="button"
+            className={value === score ? "active" : ""}
+            onClick={() => onChange(score)}
+          >
+            {score}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function createQuickLog(
   session: SessionPlan,
   armStatus: ArmStatus | "not checked",
@@ -120,10 +181,10 @@ function createQuickLog(
     plannedDayType: session.dayType,
     actualDayType: actualDayType ?? session.dayType,
     armStatus,
-    totalThrows: 0,
+    totalThrows: midpointFromText(session.throws),
     highIntentThrows: 0,
-    moundPitches: 0,
-    maxDistanceFt: 0,
+    moundPitches: session.mound ? midpointFromText(session.throws) : 0,
+    maxDistanceFt: maxNumberFromText(session.distanceFt),
     intentRange: session.intent,
     drillIds: session.drillIds,
     mainCue: session.mainCue,
@@ -136,4 +197,16 @@ function createQuickLog(
     notes: "",
     decision: "",
   };
+}
+
+function midpointFromText(text: string): number {
+  const numbers = text.match(/\d+/g)?.map(Number) ?? [];
+  if (numbers.length === 0) return 0;
+  if (numbers.length === 1) return numbers[0];
+  return Math.round((numbers[0] + numbers[1]) / 2);
+}
+
+function maxNumberFromText(text: string): number {
+  const numbers = text.match(/\d+/g)?.map(Number) ?? [];
+  return numbers.length ? Math.max(...numbers) : 0;
 }
