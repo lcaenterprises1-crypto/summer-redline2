@@ -136,7 +136,7 @@ export default function App() {
         {screen === "log" ? (
           <Log logs={logs} drills={drills} draftSession={logDraftSession ?? todaySession} onSave={saveLog} onDelete={deleteLog} />
         ) : null}
-        {screen === "progress" ? <Progress logs={logs} startDate={settings.startDate} /> : null}
+        {screen === "progress" ? <Progress logs={logs} checkIns={checkIns} startDate={settings.startDate} /> : null}
         {screen === "reference" ? (
           <ReferenceSettings
             settings={settings}
