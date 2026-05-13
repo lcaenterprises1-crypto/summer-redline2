@@ -2,6 +2,7 @@ import type { CheckInRecord, TrainingLog } from "../types";
 import { formatDisplayDate, todayIso, weekFromDate } from "../logic/schedule";
 import { Card } from "../components/Card";
 import { StatusBadge } from "../components/StatusBadge";
+import { isHighIntentHitting } from "../data/hitting";
 
 interface ProgressProps {
   logs: TrainingLog[];
@@ -68,6 +69,20 @@ interface WorkloadSummary {
   recoveryDays: number;
 }
 
+interface HittingSummary {
+  hasData: boolean;
+  touches: number;
+  highIntentExposures: number;
+  contactQualityDays: number;
+  recoveryFeelDays: number;
+  gameTransferBlocks: number;
+  feltTrend: string;
+  forearmTrend: string;
+  trunkTrend: string;
+  maxEv: number | null;
+  top5Ev: number | null;
+}
+
 interface WarningPattern {
   text: string;
   tone: Tone;
@@ -84,6 +99,7 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
   const statusTrend = buildStatusTrend(logs);
   const symptomTrend = buildSymptomTrend(logs, checkIns);
   const workload = buildWorkloadSummary(weeklyRecap.logs);
+  const hittingSummary = buildHittingSummary(logs, startDate);
   const warningPatterns = buildWarningPatterns(logs, checkIns, symptomTrend);
   const earnedProgression = buildEarnedProgression(logs, weeklyRecap, cleanStreak, symptomTrend, warningPatterns);
   const recommendation = buildRecommendation(earnedProgression, warningPatterns, logs.length);
@@ -103,6 +119,7 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
       <StatusTrendCard trend={statusTrend} />
       <SymptomTrendCard symptoms={symptomTrend} />
       <WorkloadCard workload={workload} />
+      <HittingSummaryCard summary={hittingSummary} />
       <WarningPatternsCard patterns={warningPatterns} />
       <RecommendationCard recommendation={recommendation} earned={earnedProgression} />
     </div>
@@ -273,6 +290,38 @@ function WorkloadCard({ workload }: { workload: WorkloadSummary }) {
         </div>
       ) : (
         <p className="progress-copy">Not enough logged data yet. Save a few sessions to see workload, mound exposure, distance, and intent recaps.</p>
+      )}
+    </Card>
+  );
+}
+
+function HittingSummaryCard({ summary }: { summary: HittingSummary }) {
+  return (
+    <Card className="progress-card">
+      <div className="progress-card-header">
+        <div>
+          <span className="eyebrow">Hitting Summary</span>
+          <h3>This week</h3>
+        </div>
+      </div>
+      {summary.hasData ? (
+        <>
+          <div className="progress-mini-grid">
+            <MiniMetric label="Swing touches" value={summary.touches} />
+            <MiniMetric label="High intent" value={summary.highIntentExposures} tone={summary.highIntentExposures > 1 ? "watch" : "neutral"} />
+            <MiniMetric label="Contact Quality" value={summary.contactQualityDays} />
+            <MiniMetric label="Recovery / Feel" value={summary.recoveryFeelDays} />
+            <MiniMetric label="Game Transfer" value={summary.gameTransferBlocks} />
+            <MiniMetric label="Felt trend" value={summary.feltTrend} />
+            <MiniMetric label="Forearm/hand" value={summary.forearmTrend} />
+            <MiniMetric label="Trunk/back" value={summary.trunkTrend} />
+            <MiniMetric label="Max EV" value={summary.maxEv === null ? "-" : summary.maxEv} />
+            <MiniMetric label="Top-5 EV" value={summary.top5Ev === null ? "-" : summary.top5Ev} />
+          </div>
+          <p className="progress-copy">Swing often. Redline strategically. Let output work stay planned, contained, and logged.</p>
+        </>
+      ) : (
+        <p className="progress-copy">Log hitting sessions to unlock hitting trends: swing touches, high-intent exposures, feel, fatigue, and optional EV/bat-speed output.</p>
       )}
     </Card>
   );
@@ -503,6 +552,45 @@ function buildWorkloadSummary(logs: TrainingLog[]): WorkloadSummary {
     moundSessions: logs.filter((log) => safeNumber(log.moundPitches) > 0 || textIncludes(log.actualDayType, "mound")).length,
     plyoDays: logs.filter((log) => Array.isArray(log.drillIds) && log.drillIds.some(isPlyoDrillId)).length,
     recoveryDays: logs.filter(isRecoveryLog).length,
+  };
+}
+
+function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSummary {
+  const week = Math.max(1, weekFromDate(todayIso(), startDate));
+  const hittingLogs = logs.filter((log) => log.lane === "hitting");
+  const weekLogs = hittingLogs.filter((log) => Math.max(1, weekFromDate(log.date, startDate)) === week);
+
+  if (weekLogs.length === 0) {
+    return {
+      hasData: false,
+      touches: 0,
+      highIntentExposures: 0,
+      contactQualityDays: 0,
+      recoveryFeelDays: 0,
+      gameTransferBlocks: 0,
+      feltTrend: "No data",
+      forearmTrend: "No data",
+      trunkTrend: "No data",
+      maxEv: null,
+      top5Ev: null,
+    };
+  }
+
+  const maxEvValues = weekLogs.map((log) => safeNumber(log.laneData?.maxEv, NaN)).filter(Number.isFinite);
+  const top5Values = weekLogs.map((log) => safeNumber(log.laneData?.top5Ev, NaN)).filter(Number.isFinite);
+
+  return {
+    hasData: true,
+    touches: weekLogs.length,
+    highIntentExposures: weekLogs.filter(isHighIntentHittingLog).length,
+    contactQualityDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Contact Quality") || textIncludes(log.actualDayType, "contact quality")).length,
+    recoveryFeelDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Recovery / Feel") || textIncludes(log.actualDayType, "recovery / feel")).length,
+    gameTransferBlocks: weekLogs.filter((log) => laneText(log, "sessionType").includes("Game Transfer") || textIncludes(log.actualDayType, "game transfer")).length,
+    feltTrend: summarizeRecentLaneText(weekLogs, "hittingFelt"),
+    forearmTrend: summarizeFatigue(weekLogs, "forearmFatigue"),
+    trunkTrend: summarizeFatigue(weekLogs, "trunkFatigue"),
+    maxEv: maxEvValues.length ? Math.max(...maxEvValues) : null,
+    top5Ev: top5Values.length ? Math.max(...top5Values) : null,
   };
 }
 
@@ -773,6 +861,39 @@ function isRecoveryLog(log: TrainingLog): boolean {
 
 function highIntentSignal(log: TrainingLog): boolean {
   return safeNumber(log.highIntentThrows) > 0 || maxNumberFromText(log.intentRange) >= 75 || textIncludes(log.actualDayType, "high-intent") || textIncludes(log.actualDayType, "velo");
+}
+
+function isHighIntentHittingLog(log: TrainingLog): boolean {
+  return (
+    log.lane === "hitting" &&
+    (log.laneData?.highIntent === true ||
+      isHighIntentHitting(laneText(log, "sessionType")) ||
+      textIncludes(log.actualDayType, "bat speed") ||
+      textIncludes(log.actualDayType, "ev / damage"))
+  );
+}
+
+function laneText(log: TrainingLog, key: string): string {
+  const value = log.laneData?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function summarizeRecentLaneText(logs: TrainingLog[], key: string): string {
+  const values = sortLogsNewestFirst(logs)
+    .map((log) => laneText(log, key))
+    .filter(Boolean)
+    .slice(0, 3);
+  if (values.length === 0) return "No data";
+  return values.join(" / ");
+}
+
+function summarizeFatigue(logs: TrainingLog[], key: string): string {
+  const values = logs.map((log) => laneText(log, key)).filter(Boolean);
+  if (values.length === 0) return "No data";
+  if (values.includes("High")) return "High";
+  if (values.includes("Moderate")) return "Moderate";
+  if (values.includes("Mild")) return "Mild";
+  return "Clean";
 }
 
 function backToBackThrowingWarning(logs: TrainingLog[]): boolean {
