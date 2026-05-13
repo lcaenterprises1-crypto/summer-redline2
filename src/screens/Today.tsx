@@ -21,6 +21,18 @@ import { NumericInput } from "../components/NumericInput";
 import { QuickLogCard } from "../components/QuickLogCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { getHittingTemplate, hittingSessionTypes, isHighIntentHitting, type HittingSessionType, type HittingTemplate } from "../data/hitting";
+import {
+  blocksForVersion,
+  getPhysicalTemplate,
+  physicalLocations,
+  physicalSessionTypes,
+  physicalVersions,
+  type PhysicalBlock,
+  type PhysicalLocation,
+  type PhysicalSessionType,
+  type PhysicalTemplate,
+  type PhysicalVersion,
+} from "../data/physical";
 
 interface TodayProps {
   session: SessionPlan;
@@ -101,10 +113,11 @@ export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }:
 
   if (mode === "physical") {
     return (
-      <LaneSessionView
-        lane="physical"
-        title="Physical Performance"
+      <PhysicalSessionView
         plan={lanePlans.physical}
+        readiness={readiness}
+        throwingSession={session}
+        stressCheck={stressCheck}
         onBack={() => setMode("overview")}
         onSave={saveLaneLog}
       />
@@ -302,6 +315,13 @@ interface LanePlan {
   typicalVolume?: string;
   trackingFields?: string[];
   outputKind?: HittingTemplate["outputKind"];
+  physicalPurpose?: string;
+  physicalBestUsed?: string;
+  physicalDefaultVersion?: PhysicalVersion;
+  physicalLocations?: PhysicalLocation[];
+  yellowArmAdjustment?: string;
+  yellowKneeAdjustment?: string;
+  physicalBlocks?: Partial<Record<PhysicalVersion, PhysicalBlock[]>>;
 }
 
 interface LanePlans {
@@ -1114,6 +1134,209 @@ function NumberField({
   );
 }
 
+function PhysicalSessionView({
+  plan,
+  readiness,
+  throwingSession,
+  stressCheck,
+  onBack,
+  onSave,
+}: {
+  plan: LanePlan;
+  readiness: ReadinessSnapshot;
+  throwingSession: SessionPlan;
+  stressCheck: DailyStressCheck;
+  onBack: () => void;
+  onSave: (log: TrainingLog) => void;
+}) {
+  const [sessionType, setSessionType] = useState<PhysicalSessionType>(toPhysicalSessionType(plan.sessionType));
+  const template = getPhysicalTemplate(sessionType);
+  const recommendation = recommendPhysicalVersion(template, readiness, throwingSession, stressCheck);
+  const [version, setVersion] = useState<PhysicalVersion>(recommendation.version);
+  const [location, setLocation] = useState<PhysicalLocation>(template.defaultLocation);
+
+  useEffect(() => {
+    setVersion(recommendation.version);
+    setLocation(template.defaultLocation);
+  }, [recommendation.version, template.defaultLocation, template.sessionType]);
+
+  const blocks = blocksForVersion(template, version);
+
+  return (
+    <div className="screen stack active-session physical-session">
+      <TodayTopper label="Physical Performance" onBack={onBack} />
+      <Card accent className="active-session-hero lane-session-hero">
+        <span className="eyebrow">Physical Performance</span>
+        <h2>{template.sessionType}</h2>
+        <p>{template.purpose}</p>
+        <div className="lane-log-grid">
+          <SelectField label="Session type" value={sessionType} options={physicalSessionTypes} onChange={(value) => setSessionType(value as PhysicalSessionType)} />
+          <SelectField label="Version" value={version} options={physicalVersions.filter((item) => blocksForVersion(template, item).length > 0)} onChange={(value) => setVersion(value as PhysicalVersion)} />
+          <SelectField label="Location" value={location} options={physicalLocations.filter((item) => template.locations.includes(item))} onChange={(value) => setLocation(value as PhysicalLocation)} />
+          <SelectField label="Stress" value={template.stress} options={[template.stress]} onChange={() => undefined} />
+        </div>
+        <p className="muted-line">Best used: {template.bestUsed}</p>
+        <p className="warning-line">{recommendation.reason}</p>
+      </Card>
+
+      {readiness.knee === "Yellow" || readiness.knee === "Red" ? (
+        <Card className="lane-card adjustment-card">
+          <span className="eyebrow">Yellow Knee Adjustment</span>
+          <p className="muted-line">{template.yellowKneeAdjustment}</p>
+        </Card>
+      ) : null}
+
+      {readiness.arm === "Yellow" || readiness.arm === "Red" ? (
+        <Card className="lane-card adjustment-card">
+          <span className="eyebrow">Yellow Arm Adjustment</span>
+          <p className="muted-line">{template.yellowArmAdjustment}</p>
+        </Card>
+      ) : null}
+
+      {locationSwapText(location, readiness) ? (
+        <Card className="lane-card">
+          <span className="eyebrow">Location Notes</span>
+          <p className="muted-line">{locationSwapText(location, readiness)}</p>
+        </Card>
+      ) : null}
+
+      <Card className="lane-card">
+        <div className="section-heading compact-heading">
+          <div>
+            <span className="eyebrow">Session Blocks</span>
+            <h2>{version} Session</h2>
+          </div>
+        </div>
+        <div className="checklist-block">
+          {blocks.map((block) => (
+            <div key={block.title} className="physical-block">
+              <h3>{block.title}</h3>
+              {block.rows.map((row) => (
+                <label key={`${block.title}-${row.name}`} className="check-row">
+                  <input type="checkbox" />
+                  <span>
+                    <strong>{row.name}</strong> - {row.prescription}
+                    {row.note ? <small>{row.note}</small> : null}
+                    {row.swap ? <small>Swap: {row.swap}</small> : null}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>
+        <p className="avoid-line">Avoid: {template.avoid.join(", ")}</p>
+      </Card>
+
+      <Card className="lane-card">
+        <span className="eyebrow">Missed this?</span>
+        <p className="muted-line">Full missed-day adjustment engine coming in v1.9: slide, swap, condense, skip, or rebuild.</p>
+      </Card>
+
+      <PhysicalQuickLog template={template} version={version} location={location} onSave={onSave} />
+    </div>
+  );
+}
+
+function PhysicalQuickLog({
+  template,
+  version,
+  location,
+  onSave,
+}: {
+  template: PhysicalTemplate;
+  version: PhysicalVersion;
+  location: PhysicalLocation;
+  onSave: (log: TrainingLog) => void;
+}) {
+  const [status, setStatus] = useState<LaneStatus>("Completed");
+  const [sessionRpe, setSessionRpe] = useState("5");
+  const [armAfter, setArmAfter] = useState<"green" | "yellow" | "red">("green");
+  const [kneeAfter, setKneeAfter] = useState("Yellow");
+  const [energyAfter, setEnergyAfter] = useState("Green");
+  const [soreness, setSoreness] = useState("Low");
+  const [mainWork, setMainWork] = useState("Yes");
+  const [painDuring, setPainDuring] = useState("None");
+  const [notes, setNotes] = useState("");
+
+  const save = (overrideStatus?: LaneStatus) => {
+    const finalStatus = overrideStatus ?? status;
+    const laneData: Record<string, string | number | boolean> = {
+      status: finalStatus,
+      sessionType: template.sessionType,
+      version,
+      location,
+      sessionRpe: Number(sessionRpe),
+      armAfter,
+      kneeAfter,
+      energyAfter,
+      soreness,
+      mainWork,
+      painDuring,
+    };
+
+    onSave({
+      id: `physical-${Date.now()}`,
+      lane: "physical",
+      date: todayIso(),
+      phase: "Physical Performance Integration",
+      plannedDayType: template.sessionType,
+      actualDayType: `Physical - ${template.sessionType}`,
+      armStatus: armAfter,
+      totalThrows: 0,
+      highIntentThrows: 0,
+      moundPitches: 0,
+      maxDistanceFt: 0,
+      intentRange: "",
+      drillIds: [],
+      mainCue: template.purpose,
+      forearmTightnessAfter: 0,
+      bicepsTightnessAfter: 0,
+      painDuring: painDuring === "Arm" || painDuring === "Back" || painDuring === "Other" ? 2 : 0,
+      painOneHourAfter: 0,
+      hotRedHandForearm: false,
+      nextMorningSymptoms: false,
+      notes,
+      decision: finalStatus === "Modified" ? "hold" : finalStatus === "Skipped" ? "regress" : "progress",
+      laneData,
+    });
+  };
+
+  return (
+    <Card className="lane-card lane-log-card">
+      <div className="section-heading compact-heading">
+        <div>
+          <span className="eyebrow">Quick Log</span>
+          <h2>Physical Log</h2>
+        </div>
+      </div>
+      <div className="lane-log-grid">
+        <SelectField label="Status" value={status} options={["Completed", "Modified", "Skipped"]} onChange={(value) => setStatus(value as LaneStatus)} />
+        <SelectField label="Version" value={version} options={[version]} onChange={() => undefined} />
+        <SelectField label="Location" value={location} options={[location]} onChange={() => undefined} />
+        <SelectField label="RPE" value={sessionRpe} options={["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]} onChange={setSessionRpe} />
+        <SelectField label="Arm after" value={armAfter} options={["green", "yellow", "red"]} onChange={(value) => setArmAfter(value as "green" | "yellow" | "red")} />
+        <SelectField label="Knee after" value={kneeAfter} options={["Green", "Yellow", "Red"]} onChange={setKneeAfter} />
+        <SelectField label="Energy after" value={energyAfter} options={["Green", "Yellow", "Red"]} onChange={setEnergyAfter} />
+        <SelectField label="Soreness" value={soreness} options={["Low", "Medium", "High"]} onChange={setSoreness} />
+        <SelectField label="Main work" value={mainWork} options={["Yes", "Partial", "No"]} onChange={setMainWork} />
+        <SelectField label="Pain during" value={painDuring} options={["None", "Arm", "Knee", "Back", "Other"]} onChange={setPainDuring} />
+      </div>
+      <label className="field">
+        <span>Notes</span>
+        <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
+      </label>
+      <div className="button-row">
+        <Button variant="primary" fullWidth onClick={() => save()}>
+          Save Physical Log
+        </Button>
+        <Button variant="ghost" onClick={() => save("Skipped")}>
+          Mark skipped
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function LaneSessionView({
   lane,
   title,
@@ -1335,6 +1558,8 @@ function buildReadiness(armStatus?: "green" | "yellow" | "red"): ReadinessSnapsh
 
 function buildLanePlans(session: SessionPlan, readiness: ReadinessSnapshot): LanePlans {
   const hittingTemplate = chooseHittingTemplate(session, readiness);
+  const physicalTemplate = choosePhysicalTemplate(session, readiness);
+  const physicalRecommendation = recommendPhysicalVersion(physicalTemplate, readiness, session);
   const highIntentGate: NonNullable<LanePlan["highIntent"]> =
     readiness.arm === "Red"
       ? "Not recommended"
@@ -1347,22 +1572,7 @@ function buildLanePlans(session: SessionPlan, readiness: ReadinessSnapshot): Lan
 
   return {
     hitting: hittingTemplateToLanePlan(hittingTemplate, highIntent, highIntentGate),
-    physical: {
-      sessionType: "Main Strength Bridge",
-      stress: "High",
-      focus: "Lower strength + knee capacity.",
-      location: "Planet Fitness",
-      recommended: readiness.knee === "Yellow" ? "Short" : "Full",
-      modifier: readiness.knee === "Yellow" ? "Reduce painful knee-dominant work." : "Normal path.",
-      reason: readiness.knee === "Yellow" ? "Yellow knee - keep hinge/posterior-chain work, reduce painful knee-dominant work." : undefined,
-      avoid: ["Painful knee-dominant volume", "Max lower body if mound/high-output day is next", "Adding extra finishers"],
-      sections: [
-        "Primer: easy movement + tissue temperature.",
-        "Strength Bridge: hinge/posterior-chain priority.",
-        "Knee Capacity: pain-free isometric or controlled work.",
-        "Arm Support: cuff/scap/serratus if needed.",
-      ],
-    },
+    physical: physicalTemplateToLanePlan(physicalTemplate, physicalRecommendation),
     recovery: {
       sessionType: "Arm care + knee reset",
       stress: "Low",
@@ -1372,6 +1582,69 @@ function buildLanePlans(session: SessionPlan, readiness: ReadinessSnapshot): Lan
       sections: ["Forearm flush", "Light cuff/scap", "Knee isometric", "Mobility", "Hydration + next-morning response note"],
     },
   };
+}
+
+function choosePhysicalTemplate(session: SessionPlan, readiness: ReadinessSnapshot): PhysicalTemplate {
+  if (readiness.arm === "Red" || readiness.knee === "Red") return getPhysicalTemplate("Recovery / Tissue Capacity");
+  if (readiness.knee === "Yellow") return getPhysicalTemplate("Main Strength");
+  if (session.mound || session.dayType.includes("Mound") || session.dayType.includes("High")) return getPhysicalTemplate("Maintenance Lift");
+  if (session.week >= 9) return getPhysicalTemplate("Power Primer");
+  return getPhysicalTemplate("Main Strength");
+}
+
+function physicalTemplateToLanePlan(template: PhysicalTemplate, recommendation: { version: PhysicalVersion; reason: string }): LanePlan {
+  return {
+    sessionType: template.sessionType,
+    stress: template.stress,
+    focus: template.purpose,
+    location: template.defaultLocation,
+    recommended: recommendation.version,
+    modifier: recommendation.reason,
+    reason: recommendation.reason,
+    avoid: template.avoid,
+    sections: blocksForVersion(template, recommendation.version).map((block) => `${block.title}: ${block.rows[0]?.name ?? "Work"}`),
+    physicalPurpose: template.purpose,
+    physicalBestUsed: template.bestUsed,
+    physicalDefaultVersion: template.defaultVersion,
+    physicalLocations: template.locations,
+    yellowArmAdjustment: template.yellowArmAdjustment,
+    yellowKneeAdjustment: template.yellowKneeAdjustment,
+    physicalBlocks: template.versions,
+  };
+}
+
+function recommendPhysicalVersion(
+  template: PhysicalTemplate,
+  readiness: ReadinessSnapshot,
+  session: SessionPlan,
+  stressCheck?: DailyStressCheck,
+): { version: PhysicalVersion; reason: string } {
+  if (template.sessionType === "Off") return { version: "Skip", reason: "Off day. Walking, hydration, sleep, and optional arm/knee check only." };
+  if (readiness.arm === "Red") return { version: "Recovery", reason: "Red arm - remove med balls, pressing, upper strain, and high-output work." };
+  if (readiness.knee === "Red") return { version: "Recovery", reason: "Red knee - remove sprinting, jumping, and heavy knee-dominant work." };
+  if (readiness.energy === "Red") return { version: "Minimum", reason: "Red energy - keep the smallest useful exposure or skip if it will not help tomorrow." };
+  if (session.mound || session.dayType.includes("Mound") || session.dayType.includes("High")) {
+    return { version: "Short", reason: "Throwing stress is high nearby - avoid max lower-body work and big med ball volume." };
+  }
+  if (stressCheck?.status === "Watch") return { version: "Short", reason: "Daily stress is stacking. Choose one priority and keep physical work contained." };
+  if (readiness.knee === "Yellow") return { version: "Short", reason: "Yellow knee - keep hinge/posterior-chain work, reduce painful knee-dominant work, and skip jumps/sprints." };
+  if (readiness.arm === "Yellow") return { version: "Short", reason: "Yellow arm - remove med balls and heavy pressing. Keep lower body, mobility, trunk, and light arm support." };
+  if (readiness.energy === "Yellow") return { version: "Minimum", reason: "Yellow energy - keep the main priority and remove optional add-ons." };
+  return { version: template.defaultVersion, reason: "Green path - use the planned version and stop before it costs tomorrow." };
+}
+
+function toPhysicalSessionType(value: string): PhysicalSessionType {
+  return physicalSessionTypes.includes(value as PhysicalSessionType) ? (value as PhysicalSessionType) : "Main Strength";
+}
+
+function locationSwapText(location: PhysicalLocation, readiness: ReadinessSnapshot): string {
+  const notes: string[] = [];
+  if (location === "Planet Fitness") notes.push("Trap bar unavailable: use DB RDL, leg press, or Smith squat.");
+  if (location === "Home") notes.push("Med ball unavailable: use fast dry movement, mobility, or low-impact power substitute.");
+  if (location === "Field") notes.push("Field work should stay crisp. Stop before it becomes conditioning.");
+  if (readiness.knee !== "Green") notes.push("Yellow knee: remove jumps/sprints and use pain-free isometrics or controlled range.");
+  if (readiness.arm !== "Green") notes.push("Yellow arm: remove med balls and heavy pressing.");
+  return notes.join(" ");
 }
 
 function chooseHittingTemplate(session: SessionPlan, readiness: ReadinessSnapshot): HittingTemplate {

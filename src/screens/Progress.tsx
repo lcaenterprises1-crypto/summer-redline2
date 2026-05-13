@@ -87,6 +87,24 @@ interface HittingSummary {
   sessionBreakdown: string;
 }
 
+interface PhysicalSummary {
+  hasData: boolean;
+  sessions: number;
+  full: number;
+  short: number;
+  minimum: number;
+  mainStrength: number;
+  upperTrunk: number;
+  speedPower: number;
+  recoveryTissue: number;
+  kneeCapacity: number;
+  armCare: number;
+  averageRpe: number | null;
+  kneeTrend: string;
+  armTrend: string;
+  energyTrend: string;
+}
+
 interface WarningPattern {
   text: string;
   tone: Tone;
@@ -104,6 +122,7 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
   const symptomTrend = buildSymptomTrend(logs, checkIns);
   const workload = buildWorkloadSummary(weeklyRecap.logs);
   const hittingSummary = buildHittingSummary(logs, startDate);
+  const physicalSummary = buildPhysicalSummary(logs, startDate);
   const warningPatterns = buildWarningPatterns(logs, checkIns, symptomTrend);
   const earnedProgression = buildEarnedProgression(logs, weeklyRecap, cleanStreak, symptomTrend, warningPatterns);
   const recommendation = buildRecommendation(earnedProgression, warningPatterns, logs.length);
@@ -125,6 +144,7 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
       <WorkloadCard workload={workload} />
       <HittingSummaryCard summary={hittingSummary} />
       <WeeklyHittingReviewCard summary={hittingSummary} />
+      <PhysicalSummaryCard summary={physicalSummary} />
       <WarningPatternsCard patterns={warningPatterns} />
       <RecommendationCard recommendation={recommendation} earned={earnedProgression} />
     </div>
@@ -360,6 +380,42 @@ function WeeklyHittingReviewCard({ summary }: { summary: HittingSummary }) {
         </>
       ) : (
         <p className="progress-copy">This review will answer: touches, high-intent exposures, feel, hard contact, rollovers, fatigue, and one focus for next week.</p>
+      )}
+    </Card>
+  );
+}
+
+function PhysicalSummaryCard({ summary }: { summary: PhysicalSummary }) {
+  return (
+    <Card className="progress-card">
+      <div className="progress-card-header">
+        <div>
+          <span className="eyebrow">Physical Performance Summary</span>
+          <h3>This week</h3>
+        </div>
+      </div>
+      {summary.hasData ? (
+        <>
+          <div className="progress-mini-grid">
+            <MiniMetric label="Sessions" value={summary.sessions} />
+            <MiniMetric label="Full" value={summary.full} />
+            <MiniMetric label="Short" value={summary.short} />
+            <MiniMetric label="Minimum" value={summary.minimum} />
+            <MiniMetric label="Main Strength" value={summary.mainStrength} />
+            <MiniMetric label="Upper + Trunk" value={summary.upperTrunk} />
+            <MiniMetric label="Speed + Power" value={summary.speedPower} />
+            <MiniMetric label="Recovery/Tissue" value={summary.recoveryTissue} />
+            <MiniMetric label="Knee Capacity" value={summary.kneeCapacity} />
+            <MiniMetric label="Arm Care" value={summary.armCare} />
+            <MiniMetric label="Avg RPE" value={summary.averageRpe === null ? "-" : summary.averageRpe.toFixed(1)} />
+            <MiniMetric label="Knee" value={summary.kneeTrend} />
+            <MiniMetric label="Arm after" value={summary.armTrend} />
+            <MiniMetric label="Energy" value={summary.energyTrend} />
+          </div>
+          <p className="progress-copy">{summary.sessions === 1 ? "One physical log saved. Useful snapshot, not a trend yet." : "Physical work is being tracked across strength, speed, knee, arm support, and recovery."}</p>
+        </>
+      ) : (
+        <p className="progress-copy">Log Physical Performance sessions to unlock strength, speed, knee, arm support, and recovery trends.</p>
       )}
     </Card>
   );
@@ -647,6 +703,51 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
     balls95,
     rolloverTrend: summarizeRecentLaneText(weekLogs, "rolloverTendency"),
     sessionBreakdown: sessionTypeBreakdown(weekLogs),
+  };
+}
+
+function buildPhysicalSummary(logs: TrainingLog[], startDate: string): PhysicalSummary {
+  const week = Math.max(1, weekFromDate(todayIso(), startDate));
+  const weekLogs = logs.filter((log) => log.lane === "physical" && Math.max(1, weekFromDate(log.date, startDate)) === week);
+
+  if (weekLogs.length === 0) {
+    return {
+      hasData: false,
+      sessions: 0,
+      full: 0,
+      short: 0,
+      minimum: 0,
+      mainStrength: 0,
+      upperTrunk: 0,
+      speedPower: 0,
+      recoveryTissue: 0,
+      kneeCapacity: 0,
+      armCare: 0,
+      averageRpe: null,
+      kneeTrend: "No data",
+      armTrend: "No data",
+      energyTrend: "No data",
+    };
+  }
+
+  const rpeValues = weekLogs.map((log) => safeNumber(log.laneData?.sessionRpe, NaN)).filter(Number.isFinite);
+
+  return {
+    hasData: true,
+    sessions: weekLogs.length,
+    full: countLaneText(weekLogs, "version", "Full"),
+    short: countLaneText(weekLogs, "version", "Short"),
+    minimum: countLaneText(weekLogs, "version", "Minimum"),
+    mainStrength: countSessionType(weekLogs, "Main Strength"),
+    upperTrunk: countSessionType(weekLogs, "Upper + Trunk"),
+    speedPower: countSessionType(weekLogs, "Speed + Power"),
+    recoveryTissue: countSessionType(weekLogs, "Recovery / Tissue"),
+    kneeCapacity: countSessionType(weekLogs, "Knee Capacity"),
+    armCare: countSessionType(weekLogs, "Arm Care"),
+    averageRpe: rpeValues.length ? average(rpeValues) : null,
+    kneeTrend: summarizeRecentLaneText(weekLogs, "kneeAfter"),
+    armTrend: summarizeRecentLaneText(weekLogs, "armAfter"),
+    energyTrend: summarizeRecentPhysicalEnergy(weekLogs),
   };
 }
 
@@ -950,6 +1051,14 @@ function summarizeRecentLaneText(logs: TrainingLog[], key: string): string {
   return values.join(" / ");
 }
 
+function summarizeRecentPhysicalEnergy(logs: TrainingLog[]): string {
+  const values = sortLogsNewestFirst(logs)
+    .map((log) => laneText(log, "energyAfter") || laneText(log, "energy"))
+    .filter(Boolean)
+    .slice(0, 3);
+  return values.length ? values.join(" / ") : "No data";
+}
+
 function summarizeFatigue(logs: TrainingLog[], key: string): string {
   const values = logs.map((log) => laneText(log, key)).filter(Boolean);
   if (values.length === 0) return "No data";
@@ -968,6 +1077,14 @@ function sessionTypeBreakdown(logs: TrainingLog[]): string {
   return Object.entries(counts)
     .map(([type, count]) => `${type} ${count}`)
     .join(" / ");
+}
+
+function countLaneText(logs: TrainingLog[], key: string, value: string): number {
+  return logs.filter((log) => laneText(log, key) === value).length;
+}
+
+function countSessionType(logs: TrainingLog[], search: string): number {
+  return logs.filter((log) => laneText(log, "sessionType").includes(search) || textIncludes(log.actualDayType, search)).length;
 }
 
 function hittingWeeklyStatus(summary: HittingSummary): "Conservative" | "Normal" | "Green-Light" {

@@ -115,6 +115,23 @@ function LaneLogDetails({ log }: { log: TrainingLog }) {
     );
   }
 
+  if (log.lane === "physical") {
+    return (
+      <dl className="compact-details lane-log-details">
+        <Detail label="Status" value={log.laneData.status} />
+        <Detail label="Session" value={log.laneData.sessionType ?? log.plannedDayType} />
+        <Detail label="Version" value={log.laneData.version} />
+        <Detail label="Location" value={log.laneData.location} />
+        <Detail label="RPE" value={log.laneData.sessionRpe} />
+        <Detail label="Arm after" value={log.laneData.armAfter} />
+        <Detail label="Knee after" value={log.laneData.kneeAfter} />
+        <Detail label="Energy" value={log.laneData.energyAfter ?? log.laneData.energy} />
+        <Detail label="Main work" value={log.laneData.mainWork} />
+        <Detail label="Pain during" value={log.laneData.painDuring} />
+      </dl>
+    );
+  }
+
   return (
     <dl className="compact-details lane-log-details">
       {Object.entries(log.laneData).slice(0, 6).map(([key, value]) => (

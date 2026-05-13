@@ -396,6 +396,27 @@ main {
   text-transform: uppercase;
 }
 
+.physical-session .physical-block {
+  display: grid;
+  gap: 7px;
+}
+
+.physical-session .physical-block h3 {
+  color: #f2f2f4;
+  font-size: 0.98rem;
+}
+
+.physical-session .check-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.physical-session .check-row small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
 .lane-log-badge {
   width: fit-content;
   border-radius: 999px;
