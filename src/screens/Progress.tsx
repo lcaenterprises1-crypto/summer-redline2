@@ -76,6 +76,7 @@ interface HittingSummary {
   contactQualityDays: number;
   recoveryFeelDays: number;
   gameTransferBlocks: number;
+  volumeTrend: string;
   feltTrend: string;
   forearmTrend: string;
   trunkTrend: string;
@@ -312,6 +313,7 @@ function HittingSummaryCard({ summary }: { summary: HittingSummary }) {
             <MiniMetric label="Contact Quality" value={summary.contactQualityDays} />
             <MiniMetric label="Recovery / Feel" value={summary.recoveryFeelDays} />
             <MiniMetric label="Game Transfer" value={summary.gameTransferBlocks} />
+            <MiniMetric label="Volume" value={summary.volumeTrend} />
             <MiniMetric label="Felt trend" value={summary.feltTrend} />
             <MiniMetric label="Forearm/hand" value={summary.forearmTrend} />
             <MiniMetric label="Trunk/back" value={summary.trunkTrend} />
@@ -568,6 +570,7 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
       contactQualityDays: 0,
       recoveryFeelDays: 0,
       gameTransferBlocks: 0,
+      volumeTrend: "No data",
       feltTrend: "No data",
       forearmTrend: "No data",
       trunkTrend: "No data",
@@ -586,6 +589,7 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
     contactQualityDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Contact Quality") || textIncludes(log.actualDayType, "contact quality")).length,
     recoveryFeelDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Recovery / Feel") || textIncludes(log.actualDayType, "recovery / feel")).length,
     gameTransferBlocks: weekLogs.filter((log) => laneText(log, "sessionType").includes("Game Transfer") || textIncludes(log.actualDayType, "game transfer")).length,
+    volumeTrend: summarizeRecentLaneText(weekLogs, "swingVolume"),
     feltTrend: summarizeRecentLaneText(weekLogs, "hittingFelt"),
     forearmTrend: summarizeFatigue(weekLogs, "forearmFatigue"),
     trunkTrend: summarizeFatigue(weekLogs, "trunkFatigue"),
@@ -597,6 +601,7 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
 function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], symptoms: SymptomSummary[]): WarningPattern[] {
   const recent = logsInLastDays(logs, 14);
   const recentCheckIns = checkIns.filter((checkIn) => daysAgo(checkIn.date) < 14);
+  const recentEvidenceCount = recent.length + recentCheckIns.length;
   const patterns: WarningPattern[] = [];
 
   if (recent.some((log) => log.armStatus === "red")) {
@@ -611,8 +616,14 @@ function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], sy
     patterns.push({ tone: "watch", text: "Forearm/biceps symptoms appeared after throwing days. Do not ignore tightness just because pain is low." });
   }
 
-  if (symptoms.some((symptom) => symptom.direction === "rising" || symptom.direction === "warning")) {
+  const risingSymptoms = symptoms.some((symptom) => symptom.direction === "rising");
+  const warningSymptoms = symptoms.some((symptom) => symptom.direction === "warning");
+  if (recentEvidenceCount < 3 && (risingSymptoms || warningSymptoms)) {
+    patterns.push({ tone: "watch", text: "Past warning detected. Need more recent logs before calling this a trend." });
+  } else if (risingSymptoms) {
     patterns.push({ tone: "watch", text: "Symptoms are trending up. Hold the current level until the response settles." });
+  } else if (warningSymptoms) {
+    patterns.push({ tone: "watch", text: "Warning-level symptom logged recently. Keep the next session controlled and keep logging honestly." });
   }
 
   if (recentCheckIns.some((checkIn) => safeNumber(checkIn.input?.sleepHours, 8) < 6.5 && (checkIn.status === "yellow" || checkIn.status === "red"))) {

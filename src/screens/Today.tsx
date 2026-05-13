@@ -1,5 +1,5 @@
 import { Activity, ClipboardCheck, Dumbbell, HeartPulse, RotateCcw, SlidersHorizontal, Target, Undo2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AdjustedSession, CheckIn, CheckInRecord, Drill, SessionPlan, TrainingLog } from "../types";
 import { evaluateArmStatus, type ArmStatusResult } from "../logic/armStatus";
 import { buildAdjustedSession } from "../logic/adjustedSession";
@@ -285,8 +285,8 @@ interface LanePlan {
   stress: "Low" | "Medium" | "High";
   intent?: "Low" | "Medium" | "High";
   focus: string;
-  highIntent?: "Allowed" | "Not Recommended" | "Downgraded" | "Off";
-  highIntentGate?: "Allowed" | "Not Recommended" | "Downgraded" | "Off";
+  highIntent?: "Allowed" | "Not planned" | "Not recommended" | "Downgraded" | "Off";
+  highIntentGate?: "Allowed" | "Not planned" | "Not recommended" | "Downgraded" | "Off";
   location?: string;
   recommended?: "Full" | "Short" | "Minimum" | "Recovery" | "Skip";
   modifier?: string;
@@ -375,7 +375,7 @@ function HittingLaneCard({ plan, stressCheck, onStart }: { plan: LanePlan; stres
         <MiniLaneMetric label="High intent" value={plan.highIntent ?? "Off"} />
       </div>
       <p className="muted-line">Focus: {plan.focus}</p>
-      {plan.highIntentGate && plan.highIntentGate !== "Allowed" ? (
+      {plan.highIntentGate && plan.highIntentGate !== "Allowed" && plan.highIntentGate !== "Not planned" ? (
         <p className="warning-line">High-intent hitting: {plan.highIntentGate}. Keep normal swings available, but do not redline.</p>
       ) : null}
       {stressCheck.status === "Watch" ? <p className="warning-line">{stressCheck.recommendation}</p> : null}
@@ -553,19 +553,25 @@ function HittingSessionView({
         <p className="muted-line">Best used: {template.bestUsed}</p>
       </Card>
 
-      <Card className="lane-card">
+      <Card className="lane-card hitting-guidance-card">
         <div className="section-heading compact-heading">
           <div>
-            <span className="eyebrow">Avoid Today</span>
+            <span className="eyebrow">Goal Today</span>
             <h2>{template.mainCue}</h2>
           </div>
         </div>
+        <span className="subsection-label">Avoid</span>
         <ul className="tight-list">
           {template.avoid.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
-        <p className="avoid-line">Downgrade when: {template.downgradeWhen}</p>
+        <span className="subsection-label">Downgrade when</span>
+        <ul className="tight-list">
+          {splitGuidanceText(template.downgradeWhen).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </Card>
 
       <HittingQuickLog template={template} highIntent={highIntent} onSave={onSave} />
@@ -585,7 +591,7 @@ function HittingQuickLog({
   const [status, setStatus] = useState<LaneStatus>("Completed");
   const [intent, setIntent] = useState(template.intent);
   const [swingVolume, setSwingVolume] = useState("Medium");
-  const [exactSwings, setExactSwings] = useState(0);
+  const [exactSwings, setExactSwings] = useState("");
   const [swingFeel, setSwingFeel] = useState("3");
   const [hittingFelt, setHittingFelt] = useState("Good");
   const [bestDirection, setBestDirection] = useState("Middle");
@@ -621,13 +627,18 @@ function HittingQuickLog({
   const [bestLocation, setBestLocation] = useState("Middle");
   const [powerOrganized, setPowerOrganized] = useState("Yes");
 
+  useEffect(() => {
+    setIntent(template.intent);
+  }, [template.intent]);
+
   const save = () => {
+    const exactSwingCount = Number(exactSwings);
     const laneData: Record<string, string | number | boolean> = {
       status,
       sessionType: template.sessionType,
       intent,
       swingVolume,
-      exactSwings,
+      exactSwings: Number.isFinite(exactSwingCount) && exactSwingCount > 0 ? exactSwingCount : "",
       swingFeel: Number(swingFeel),
       hittingFelt,
       bestDirection,
@@ -744,8 +755,18 @@ function HittingQuickLog({
         <SelectField label="Intent" value={intent} options={["Low", "Medium", "High"]} onChange={(value) => setIntent(value as HittingTemplate["intent"])} />
         <SelectField label="Swing volume" value={swingVolume} options={["Low", "Medium", "High"]} onChange={setSwingVolume} />
         <label className="field">
-          <span>Exact swings</span>
-          <NumericInput value={exactSwings} onChange={setExactSwings} min={0} inputMode="numeric" />
+          <span>Exact swings optional</span>
+          <input
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="Optional"
+            type="text"
+            value={exactSwings}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (/^\d*$/.test(next)) setExactSwings(next);
+            }}
+          />
         </label>
         <SelectField label="Swing feel" value={swingFeel} options={["1", "2", "3", "4", "5"]} onChange={setSwingFeel} />
         <SelectField label="Hitting felt" value={hittingFelt} options={["Sharp", "Good", "Flat", "Forced"]} onChange={setHittingFelt} />
@@ -1204,9 +1225,9 @@ function buildLanePlans(session: SessionPlan, readiness: ReadinessSnapshot): Lan
   const hittingTemplate = chooseHittingTemplate(session, readiness);
   const highIntentGate: NonNullable<LanePlan["highIntent"]> =
     readiness.arm === "Red"
-      ? "Not Recommended"
+      ? "Not recommended"
       : session.mound || session.dayType.includes("Mound") || session.dayType.includes("High")
-        ? "Not Recommended"
+        ? "Not recommended"
         : readiness.arm === "Green"
           ? "Allowed"
           : "Downgraded";
@@ -1280,15 +1301,17 @@ function toHittingSessionType(value: string): HittingSessionType {
 }
 
 function highIntentStatusForTemplate(template: HittingTemplate, defaultStatus?: LanePlan["highIntent"]): NonNullable<LanePlan["highIntent"]> {
-  if (!isHighIntentHitting(template.sessionType)) return "Off";
-  return defaultStatus ?? "Not Recommended";
+  if (template.sessionType === "Off") return "Off";
+  if (!isHighIntentHitting(template.sessionType)) return "Not planned";
+  return defaultStatus ?? "Not recommended";
 }
 
 function hittingReadinessNote(template: HittingTemplate, highIntent: string): string {
   if (template.sessionType === "Off") return "Off means protect tomorrow. No full-intent hitting today.";
   if (highIntent === "Allowed") return "Green-light output is allowed only if the focused block stays clean.";
   if (highIntent === "Downgraded") return "Keep swinging, but remove high-intent and aggressive rotational stress.";
-  if (highIntent === "Not Recommended") return "Keep the swing sharp without redlining near throwing or stacked physical stress.";
+  if (highIntent === "Not recommended") return "Keep the swing sharp without redlining near throwing or stacked physical stress.";
+  if (highIntent === "Not planned") return "Normal hitting is allowed. Keep intent medium and contact clean. Limit redlining, not useful swing exposure.";
   return "Normal hitting is allowed. Limit redlining, not useful swing exposure.";
 }
 
@@ -1297,6 +1320,14 @@ function fatigueScore(value: string): number {
   if (value === "Moderate") return 3;
   if (value === "Mild") return 1;
   return 0;
+}
+
+function splitGuidanceText(value: string): string[] {
+  return value
+    .replace(/\bor\b/g, ",")
+    .split(/[,;]+/)
+    .map((item) => item.trim().replace(/\.$/, ""))
+    .filter(Boolean);
 }
 
 function buildDailyStressCheck(session: SessionPlan, lanePlans: LanePlans): DailyStressCheck {

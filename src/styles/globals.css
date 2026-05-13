@@ -389,6 +389,13 @@ main {
   padding-top: 2px;
 }
 
+.hitting-guidance-card .subsection-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
 .lane-log-badge {
   width: fit-content;
   border-radius: 999px;
