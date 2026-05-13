@@ -75,9 +75,7 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
                   <dd>{log.moundPitches}</dd>
                 </div>
               </dl>
-              {log.laneData ? (
-                <p className="muted-line">{formatLaneData(log.laneData)}</p>
-              ) : null}
+              {log.laneData ? <LaneLogDetails log={log} /> : null}
               <p className="note">{log.mainCue || "No cue logged"}</p>
               {log.drillIds?.length > 0 ? (
                 <p className="muted-line">
@@ -96,9 +94,50 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
   );
 }
 
-function formatLaneData(data: Record<string, string | number | boolean>): string {
-  return Object.entries(data)
-    .slice(0, 4)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(" / ");
+function LaneLogDetails({ log }: { log: TrainingLog }) {
+  if (!log.laneData) return null;
+  if (log.lane === "hitting") {
+    return (
+      <dl className="compact-details lane-log-details">
+        <Detail label="Status" value={log.laneData.status} />
+        <Detail label="Session" value={log.laneData.sessionType ?? log.plannedDayType} />
+        <Detail label="Intent" value={log.laneData.intent} />
+        <Detail label="Volume" value={log.laneData.swingVolume} />
+        {positiveValue(log.laneData.exactSwings) ? <Detail label="Swings" value={log.laneData.exactSwings} /> : null}
+        <Detail label="Best contact" value={log.laneData.bestDirection ?? log.laneData.outputBestContact} />
+        <Detail label="Worst miss" value={log.laneData.worstMiss ?? log.laneData.outputWorstMiss} />
+        <Detail label="Forearm/hand" value={log.laneData.forearmFatigue} />
+        <Detail label="Trunk/back" value={log.laneData.trunkFatigue} />
+        {positiveValue(log.laneData.maxEv) ? <Detail label="Max EV" value={log.laneData.maxEv} /> : null}
+        {positiveValue(log.laneData.top5Ev) ? <Detail label="Top-5 EV" value={log.laneData.top5Ev} /> : null}
+        {positiveValue(log.laneData.balls95) ? <Detail label="95+ balls" value={log.laneData.balls95} /> : null}
+      </dl>
+    );
+  }
+
+  return (
+    <dl className="compact-details lane-log-details">
+      {Object.entries(log.laneData).slice(0, 6).map(([key, value]) => (
+        <Detail key={key} label={formatKey(key)} value={value} />
+      ))}
+    </dl>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string | number | boolean | undefined }) {
+  if (value === undefined || value === "") return null;
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{String(value)}</dd>
+    </div>
+  );
+}
+
+function positiveValue(value: string | number | boolean | undefined): boolean {
+  return typeof value === "number" ? value > 0 : typeof value === "string" ? Number(value) > 0 : false;
+}
+
+function formatKey(key: string): string {
+  return key.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
 }

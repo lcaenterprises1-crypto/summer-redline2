@@ -626,6 +626,15 @@ function HittingQuickLog({
   const [takesDisciplined, setTakesDisciplined] = useState("Yes");
   const [bestLocation, setBestLocation] = useState("Middle");
   const [powerOrganized, setPowerOrganized] = useState("Yes");
+  const [speedFeel, setSpeedFeel] = useState("Fast");
+  const [normalBatFaster, setNormalBatFaster] = useState("Yes");
+  const [contactStayedClean, setContactStayedClean] = useState("Yes");
+  const [readyToCompete, setReadyToCompete] = useState("Yes");
+  const [timingFeel, setTimingFeel] = useState("Good");
+  const [mainApproachThought, setMainApproachThought] = useState("");
+  const [bodyFeel, setBodyFeel] = useState("Good");
+  const [oneFocus, setOneFocus] = useState("");
+  const [stoppedBeforeFatigue, setStoppedBeforeFatigue] = useState("Yes");
 
   useEffect(() => {
     setIntent(template.intent);
@@ -659,6 +668,8 @@ function HittingQuickLog({
         lighterBatFelt,
         normalBatTransfer,
         cleanFinishScore: Number(cleanFinishScore),
+        outputBestContact: bestLocation,
+        outputWorstMiss: rolloverTendency,
       });
     }
 
@@ -668,7 +679,7 @@ function HittingQuickLog({
         top5Ev,
         balls95,
         best10Score: Number(best10Score),
-        bestDirection,
+        outputBestContact: bestLocation,
         rolloverTendency,
         worstMiss,
       });
@@ -703,6 +714,34 @@ function HittingQuickLog({
         bestLocation,
         worstMiss,
         powerOrganized,
+      });
+    }
+
+    if (showOutput && template.outputKind === "microdose") {
+      Object.assign(laneData, {
+        speedFeel,
+        normalBatFaster,
+        contactStayedClean,
+        forearmFatigue,
+        trunkFatigue,
+      });
+    }
+
+    if (showOutput && template.outputKind === "gamePrep") {
+      Object.assign(laneData, {
+        readyToCompete,
+        swingFeel: Number(swingFeel),
+        timingFeel,
+        mainApproachThought,
+        bodyFeel,
+      });
+    }
+
+    if (showOutput && template.outputKind === "minimum") {
+      Object.assign(laneData, {
+        oneFocus,
+        leftBetter,
+        stoppedBeforeFatigue,
       });
     }
 
@@ -810,6 +849,15 @@ function HittingQuickLog({
                 takesDisciplined,
                 bestLocation,
                 powerOrganized,
+                speedFeel,
+                normalBatFaster,
+                contactStayedClean,
+                readyToCompete,
+                timingFeel,
+                mainApproachThought,
+                bodyFeel,
+                oneFocus,
+                stoppedBeforeFatigue,
               }}
               setters={{
                 setBlastBatSpeed,
@@ -836,6 +884,15 @@ function HittingQuickLog({
                 setTakesDisciplined,
                 setBestLocation,
                 setPowerOrganized,
+                setSpeedFeel,
+                setNormalBatFaster,
+                setContactStayedClean,
+                setReadyToCompete,
+                setTimingFeel,
+                setMainApproachThought,
+                setBodyFeel,
+                setOneFocus,
+                setStoppedBeforeFatigue,
               }}
             />
           ) : null}
@@ -879,6 +936,15 @@ interface OutputLogValues {
   takesDisciplined: string;
   bestLocation: string;
   powerOrganized: string;
+  speedFeel: string;
+  normalBatFaster: string;
+  contactStayedClean: string;
+  readyToCompete: string;
+  timingFeel: string;
+  mainApproachThought: string;
+  bodyFeel: string;
+  oneFocus: string;
+  stoppedBeforeFatigue: string;
 }
 
 interface OutputLogSetters {
@@ -906,6 +972,15 @@ interface OutputLogSetters {
   setTakesDisciplined: (value: string) => void;
   setBestLocation: (value: string) => void;
   setPowerOrganized: (value: string) => void;
+  setSpeedFeel: (value: string) => void;
+  setNormalBatFaster: (value: string) => void;
+  setContactStayedClean: (value: string) => void;
+  setReadyToCompete: (value: string) => void;
+  setTimingFeel: (value: string) => void;
+  setMainApproachThought: (value: string) => void;
+  setBodyFeel: (value: string) => void;
+  setOneFocus: (value: string) => void;
+  setStoppedBeforeFatigue: (value: string) => void;
 }
 
 function OutputLogFields({
@@ -921,12 +996,11 @@ function OutputLogFields({
     return (
       <div className="lane-log-grid output-grid">
         <NumberField label="Blast speed" value={values.blastBatSpeed} onChange={setters.setBlastBatSpeed} decimal />
-        <NumberField label="Rot accel" value={values.rotationalAcceleration} onChange={setters.setRotationalAcceleration} decimal />
-        <NumberField label="Attack angle" value={values.attackAngle} onChange={setters.setAttackAngle} decimal />
-        <NumberField label="On-plane %" value={values.onPlaneEfficiency} onChange={setters.setOnPlaneEfficiency} decimal />
         <SelectField label="Lighter bat" value={values.lighterBatFelt} options={["Fast", "Normal", "Weird"]} onChange={setters.setLighterBatFelt} />
         <SelectField label="Transfer" value={values.normalBatTransfer} options={["Faster", "Same", "Worse"]} onChange={setters.setNormalBatTransfer} />
         <SelectField label="Finish score" value={values.cleanFinishScore} options={["1", "2", "3", "4", "5"]} onChange={setters.setCleanFinishScore} />
+        <SelectField label="Best contact" value={values.bestLocation} options={["Pull", "Middle", "Oppo", "Mixed"]} onChange={setters.setBestLocation} />
+        <SelectField label="Worst miss" value={values.rolloverTendency} options={["Rollover", "Under", "Late-foul", "Push", "Yank-spin", "Off-balance", "Weak contact", "None"]} onChange={setters.setRolloverTendency} />
       </div>
     );
   }
@@ -938,6 +1012,7 @@ function OutputLogFields({
         <NumberField label="Top-5 EV" value={values.top5Ev} onChange={setters.setTop5Ev} decimal />
         <NumberField label="95+ balls" value={values.balls95} onChange={setters.setBalls95} />
         <SelectField label="Best 10 score" value={values.best10Score} options={["1", "2", "3", "4", "5"]} onChange={setters.setBest10Score} />
+        <SelectField label="Best contact" value={values.bestLocation} options={["Pull", "Middle", "Oppo", "Mixed"]} onChange={setters.setBestLocation} />
         <SelectField label="Rollover tendency" value={values.rolloverTendency} options={["Low", "Medium", "High"]} onChange={setters.setRolloverTendency} />
       </div>
     );
@@ -968,6 +1043,43 @@ function OutputLogFields({
           <span>Best cue</span>
           <input value={values.bestCue} onChange={(event) => setters.setBestCue(event.target.value)} />
         </label>
+      </div>
+    );
+  }
+
+  if (kind === "microdose") {
+    return (
+      <div className="lane-log-grid output-grid">
+        <SelectField label="Speed feel" value={values.speedFeel} options={["Fast", "Normal", "Slow", "Forced"]} onChange={setters.setSpeedFeel} />
+        <SelectField label="Normal bat faster" value={values.normalBatFaster} options={["Yes", "No"]} onChange={setters.setNormalBatFaster} />
+        <SelectField label="Contact stayed clean" value={values.contactStayedClean} options={["Yes", "No"]} onChange={setters.setContactStayedClean} />
+      </div>
+    );
+  }
+
+  if (kind === "gamePrep") {
+    return (
+      <div className="lane-log-grid output-grid">
+        <SelectField label="Ready to compete" value={values.readyToCompete} options={["Yes", "No"]} onChange={setters.setReadyToCompete} />
+        <SelectField label="Timing feel" value={values.timingFeel} options={["Good", "Okay", "Late", "Rushed"]} onChange={setters.setTimingFeel} />
+        <SelectField label="Body feel" value={values.bodyFeel} options={["Good", "Okay", "Flat", "Tight"]} onChange={setters.setBodyFeel} />
+        <label className="field">
+          <span>Approach thought</span>
+          <input value={values.mainApproachThought} onChange={(event) => setters.setMainApproachThought(event.target.value)} />
+        </label>
+      </div>
+    );
+  }
+
+  if (kind === "minimum") {
+    return (
+      <div className="lane-log-grid output-grid">
+        <label className="field">
+          <span>One focus</span>
+          <input value={values.oneFocus} onChange={(event) => setters.setOneFocus(event.target.value)} />
+        </label>
+        <SelectField label="Left better" value={values.leftBetter} options={["Yes", "No"]} onChange={setters.setLeftBetter} />
+        <SelectField label="Stopped before fatigue" value={values.stoppedBeforeFatigue} options={["Yes", "No"]} onChange={setters.setStoppedBeforeFatigue} />
       </div>
     );
   }

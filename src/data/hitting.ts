@@ -22,7 +22,7 @@ export interface HittingTemplate {
   mainCue: string;
   typicalVolume: string;
   trackingFields: string[];
-  outputKind?: "batSpeed" | "evDamage" | "contactQuality" | "recoveryFeel" | "gameTransfer";
+  outputKind?: "batSpeed" | "evDamage" | "contactQuality" | "recoveryFeel" | "gameTransfer" | "microdose" | "gamePrep" | "minimum";
 }
 
 export const hittingSessionTypes: HittingSessionType[] = [
@@ -93,7 +93,7 @@ export const hittingTemplates: Record<HittingSessionType, HittingTemplate> = {
     focusedBlock: ["Dynamic warmup", "Optional tiny med ball primer if green", "Dry swing ramp with normal bat", "Lighter bat speed block", "Optional heavy dry primer only", "Normal bat transfer swings", "Short tee contact finish"],
     freedomBlock: ["Normal tee work", "Middle-field barrels", "Contact quality", "Rhythm work"],
     avoid: ["Endless max-speed swings", "Fake bat speed", "Turning the session into sloppy output"],
-    mainCue: "Maximum clean intent.",
+    mainCue: "Move fast, then transfer clean.",
     typicalVolume: "35-50 focused swings.",
     trackingFields: ["Blast bat speed", "Rotational acceleration", "Attack angle", "On-plane efficiency", "Transfer feel", "Clean contact finish"],
     outputKind: "batSpeed",
@@ -108,7 +108,7 @@ export const hittingTemplates: Record<HittingSessionType, HittingTemplate> = {
     focusedBlock: ["Warmup", "Optional tiny med ball primer if green", "Dry swing ramp", "Middle-middle damage", "Middle-in damage", "Slightly away damage through the big part", "Best 10 finish"],
     freedomBlock: ["Keep damage going if clean", "Contact quality reset", "Stance/rhythm tinkering", "Confidence finish"],
     avoid: ["Max EV chasing after quality drops", "Sloppy pull-side rollovers", "Forcing one more number"],
-    mainCue: "Maximum clean collision.",
+    mainCue: "Maximum clean intent.",
     typicalVolume: "45-60 focused swings.",
     trackingFields: ["Max EV", "Top-5 EV average", "95+ balls", "Best 10 finish", "Worst miss", "Body response"],
     outputKind: "evDamage",
@@ -126,7 +126,7 @@ export const hittingTemplates: Record<HittingSessionType, HittingTemplate> = {
     mainCue: "Touch speed, then get out.",
     typicalVolume: "15-30 swings.",
     trackingFields: ["Speed touch quality", "Transfer feel", "Best contact", "Body response"],
-    outputKind: "batSpeed",
+    outputKind: "microdose",
   },
   "Game Prep": {
     sessionType: "Game Prep",
@@ -141,6 +141,7 @@ export const hittingTemplates: Record<HittingSessionType, HittingTemplate> = {
     mainCue: "Feel athletic, on time, and confident.",
     typicalVolume: "25-45 swings.",
     trackingFields: ["Feel", "Approach cue", "Confidence finish", "Worst miss"],
+    outputKind: "gamePrep",
   },
   "Minimum Hitting": {
     sessionType: "Minimum Hitting",
@@ -152,9 +153,10 @@ export const hittingTemplates: Record<HittingSessionType, HittingTemplate> = {
     focusedBlock: ["Dry swings", "Easy tee", "One focus", "Stop before fatigue"],
     freedomBlock: ["None needed", "The win is keeping rhythm"],
     avoid: ["Adding volume because it feels too easy", "Turning minimum into a full session"],
-    mainCue: "Keep rhythm. Leave fresh.",
+    mainCue: "Minimum useful work.",
     typicalVolume: "10-25 swings.",
     trackingFields: ["Completed", "Swing feel", "One cue", "Left fresh"],
+    outputKind: "minimum",
   },
   Off: {
     sessionType: "Off",

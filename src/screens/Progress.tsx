@@ -82,6 +82,9 @@ interface HittingSummary {
   trunkTrend: string;
   maxEv: number | null;
   top5Ev: number | null;
+  balls95: number;
+  rolloverTrend: string;
+  sessionBreakdown: string;
 }
 
 interface WarningPattern {
@@ -121,6 +124,7 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
       <SymptomTrendCard symptoms={symptomTrend} />
       <WorkloadCard workload={workload} />
       <HittingSummaryCard summary={hittingSummary} />
+      <WeeklyHittingReviewCard summary={hittingSummary} />
       <WarningPatternsCard patterns={warningPatterns} />
       <RecommendationCard recommendation={recommendation} earned={earnedProgression} />
     </div>
@@ -319,13 +323,54 @@ function HittingSummaryCard({ summary }: { summary: HittingSummary }) {
             <MiniMetric label="Trunk/back" value={summary.trunkTrend} />
             <MiniMetric label="Max EV" value={summary.maxEv === null ? "-" : summary.maxEv} />
             <MiniMetric label="Top-5 EV" value={summary.top5Ev === null ? "-" : summary.top5Ev} />
+            <MiniMetric label="95+ balls" value={summary.balls95} />
+            <MiniMetric label="Rollover trend" value={summary.rolloverTrend} />
           </div>
+          <p className="progress-copy">Session mix: {summary.sessionBreakdown}</p>
           <p className="progress-copy">Swing often. Redline strategically. Let output work stay planned, contained, and logged.</p>
         </>
       ) : (
         <p className="progress-copy">Log hitting sessions to unlock hitting trends: swing touches, high-intent exposures, feel, fatigue, and optional EV/bat-speed output.</p>
       )}
     </Card>
+  );
+}
+
+function WeeklyHittingReviewCard({ summary }: { summary: HittingSummary }) {
+  const status = hittingWeeklyStatus(summary);
+  return (
+    <Card className="progress-card">
+      <div className="progress-card-header">
+        <div>
+          <span className="eyebrow">Weekly Hitting Review</span>
+          <h3>{summary.hasData ? status : "Log hitting to unlock review"}</h3>
+        </div>
+      </div>
+      {summary.hasData ? (
+        <>
+          <div className="symptom-list">
+            <ReviewRow label="Swing touches" value={`${summary.touches} this week`} />
+            <ReviewRow label="High-intent exposures" value={`${summary.highIntentExposures}`} />
+            <ReviewRow label="Overall feel" value={summary.touches < 2 ? `${summary.feltTrend} - one log, no trend yet` : summary.feltTrend} />
+            <ReviewRow label="Hard contact" value={summary.maxEv === null ? "Use output logs when relevant" : `Max EV ${summary.maxEv}`} />
+            <ReviewRow label="Rollovers" value={summary.rolloverTrend} />
+            <ReviewRow label="Next week focus" value={nextHittingFocus(summary)} />
+          </div>
+          <p className="progress-copy">Green-Light means add one thing only, not everything.</p>
+        </>
+      ) : (
+        <p className="progress-copy">This review will answer: touches, high-intent exposures, feel, hard contact, rollovers, fatigue, and one focus for next week.</p>
+      )}
+    </Card>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="symptom-row">
+      <strong>{label}</strong>
+      <span>{value}</span>
+    </div>
   );
 }
 
@@ -576,11 +621,15 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
       trunkTrend: "No data",
       maxEv: null,
       top5Ev: null,
+      balls95: 0,
+      rolloverTrend: "No data",
+      sessionBreakdown: "No data",
     };
   }
 
   const maxEvValues = weekLogs.map((log) => safeNumber(log.laneData?.maxEv, NaN)).filter(Number.isFinite);
   const top5Values = weekLogs.map((log) => safeNumber(log.laneData?.top5Ev, NaN)).filter(Number.isFinite);
+  const balls95 = weekLogs.reduce((sum, log) => sum + safeNumber(log.laneData?.balls95), 0);
 
   return {
     hasData: true,
@@ -595,6 +644,9 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
     trunkTrend: summarizeFatigue(weekLogs, "trunkFatigue"),
     maxEv: maxEvValues.length ? Math.max(...maxEvValues) : null,
     top5Ev: top5Values.length ? Math.max(...top5Values) : null,
+    balls95,
+    rolloverTrend: summarizeRecentLaneText(weekLogs, "rolloverTendency"),
+    sessionBreakdown: sessionTypeBreakdown(weekLogs),
   };
 }
 
@@ -905,6 +957,30 @@ function summarizeFatigue(logs: TrainingLog[], key: string): string {
   if (values.includes("Moderate")) return "Moderate";
   if (values.includes("Mild")) return "Mild";
   return "Clean";
+}
+
+function sessionTypeBreakdown(logs: TrainingLog[]): string {
+  const counts = logs.reduce<Record<string, number>>((acc, log) => {
+    const type = laneText(log, "sessionType") || log.plannedDayType || "Hitting";
+    acc[type] = (acc[type] ?? 0) + 1;
+    return acc;
+  }, {});
+  return Object.entries(counts)
+    .map(([type, count]) => `${type} ${count}`)
+    .join(" / ");
+}
+
+function hittingWeeklyStatus(summary: HittingSummary): "Conservative" | "Normal" | "Green-Light" {
+  if (!summary.hasData || summary.touches <= 1 || summary.forearmTrend === "High" || summary.trunkTrend === "High") return "Conservative";
+  if (summary.highIntentExposures > 1 || summary.forearmTrend === "Moderate" || summary.trunkTrend === "Moderate") return "Normal";
+  return "Green-Light";
+}
+
+function nextHittingFocus(summary: HittingSummary): string {
+  if (summary.forearmTrend === "High" || summary.trunkTrend === "High") return "Recovery / Feel until fatigue settles";
+  if (summary.rolloverTrend === "High" || summary.rolloverTrend === "Medium") return "Contact Quality: clean direction before output";
+  if (summary.highIntentExposures === 0 && summary.touches >= 2) return "Consider one planned output touch if readiness is green";
+  return "Keep useful swing exposure and avoid random redlining";
 }
 
 function backToBackThrowingWarning(logs: TrainingLog[]): boolean {
