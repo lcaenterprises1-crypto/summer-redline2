@@ -762,10 +762,12 @@ function isCleanLog(log: TrainingLog): boolean {
 }
 
 function isThrowingLog(log: TrainingLog): boolean {
+  if (log.lane && log.lane !== "throwing") return false;
   return safeNumber(log.totalThrows) > 0 || textIncludes(log.actualDayType, "catch") || textIncludes(log.actualDayType, "mound") || textIncludes(log.actualDayType, "build") || textIncludes(log.actualDayType, "velo");
 }
 
 function isRecoveryLog(log: TrainingLog): boolean {
+  if (log.lane) return log.lane === "recovery";
   return safeNumber(log.totalThrows) === 0 || textIncludes(log.actualDayType, "recovery") || textIncludes(log.actualDayType, "arm-care") || textIncludes(log.actualDayType, "off");
 }
 

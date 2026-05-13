@@ -187,6 +187,17 @@ main {
   padding: 13px;
 }
 
+.today-build-card {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+}
+
+.daily-note {
+  color: #ffd5c3;
+  line-height: 1.35;
+}
+
 .today-launch-kicker,
 .today-topper,
 .preview-line {
@@ -248,6 +259,118 @@ main {
   gap: 7px;
   padding: 11px;
   box-shadow: none;
+}
+
+.readiness-card,
+.lane-card {
+  display: grid;
+  gap: 12px;
+}
+
+.lane-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lane-card-header h2 {
+  margin-top: 3px;
+  font-size: 1.22rem;
+}
+
+.lane-card-header svg {
+  flex: none;
+  color: var(--accent-2);
+}
+
+.lane-prescription {
+  color: #f2f2f4;
+  font-weight: 820;
+  line-height: 1.32;
+}
+
+.lane-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.mini-lane-metric {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.mini-lane-metric span,
+.safe-alternatives span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.mini-lane-metric strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.warning-line {
+  color: #ffe1a1;
+  line-height: 1.35;
+}
+
+.stress-watch {
+  border-color: rgba(245, 184, 61, 0.32);
+}
+
+.safe-alternatives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.safe-alternatives span {
+  width: 100%;
+}
+
+.safe-alternatives strong {
+  border-radius: 999px;
+  padding: 7px 9px;
+  background: rgba(255, 138, 61, 0.1);
+  color: #ffd5c3;
+  font-size: 0.82rem;
+}
+
+.lane-session-hero .detail-grid {
+  margin-top: 2px;
+}
+
+.lane-log-card textarea {
+  min-height: 68px;
+}
+
+.lane-log-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.lane-log-badge {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(255, 75, 31, 0.14);
+  color: #ffd5c3;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
 }
 
 .preview-line {

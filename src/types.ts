@@ -64,6 +64,7 @@ export interface CheckInRecord {
 export interface TrainingLog {
   id: string;
   date: string;
+  lane?: "throwing" | "hitting" | "physical" | "recovery";
   phase: string;
   plannedDayType: string;
   actualDayType: string;
@@ -83,6 +84,7 @@ export interface TrainingLog {
   nextMorningSymptoms: boolean;
   notes: string;
   decision: "progress" | "hold" | "regress" | "";
+  laneData?: Record<string, string | number | boolean>;
 }
 
 export interface AdjustedSession {

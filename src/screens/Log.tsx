@@ -59,6 +59,7 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
                 <span>{formatDisplayDate(log.date)}</span>
                 <StatusBadge status={log.armStatus} />
               </div>
+              {log.lane ? <span className="lane-log-badge">{log.lane}</span> : null}
               <h3>{log.actualDayType}</h3>
               <dl className="compact-details">
                 <div>
@@ -74,8 +75,11 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
                   <dd>{log.moundPitches}</dd>
                 </div>
               </dl>
+              {log.laneData ? (
+                <p className="muted-line">{formatLaneData(log.laneData)}</p>
+              ) : null}
               <p className="note">{log.mainCue || "No cue logged"}</p>
-              {log.drillIds.length > 0 ? (
+              {log.drillIds?.length > 0 ? (
                 <p className="muted-line">
                   {log.drillIds.map((id) => drillNames.get(id) ?? id).join(", ")}
                 </p>
@@ -90,4 +94,11 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
       </div>
     </div>
   );
+}
+
+function formatLaneData(data: Record<string, string | number | boolean>): string {
+  return Object.entries(data)
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" / ");
 }

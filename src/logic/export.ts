@@ -22,6 +22,7 @@ export function exportLogsCsv(logs: TrainingLog[], drills: Drill[]): void {
   const drillNames = new Map(drills.map((drill) => [drill.id, drill.name]));
   const headers = [
     "date",
+    "lane",
     "phase",
     "plannedDayType",
     "actualDayType",
@@ -46,6 +47,7 @@ export function exportLogsCsv(logs: TrainingLog[], drills: Drill[]): void {
   const rows = logs.map((log) =>
     [
       log.date,
+      log.lane ?? "throwing",
       log.phase,
       log.plannedDayType,
       log.actualDayType,
@@ -55,7 +57,7 @@ export function exportLogsCsv(logs: TrainingLog[], drills: Drill[]): void {
       log.moundPitches,
       log.maxDistanceFt,
       log.intentRange,
-      log.drillIds.map((id) => drillNames.get(id) ?? id).join(" | "),
+      (log.drillIds ?? []).map((id) => drillNames.get(id) ?? id).join(" | "),
       log.mainCue,
       log.forearmTightnessAfter,
       log.bicepsTightnessAfter,
