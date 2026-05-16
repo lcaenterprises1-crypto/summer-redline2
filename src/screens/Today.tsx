@@ -1229,7 +1229,7 @@ function PhysicalSessionView({
 
       <Card className="lane-card">
         <span className="eyebrow">Missed this?</span>
-        <p className="muted-line">Full missed-day adjustment engine coming in v1.9: slide, swap, condense, skip, or rebuild.</p>
+        <p className="muted-line">Full missed-day adjustment engine coming in a future update: slide, swap, condense, skip, or rebuild.</p>
       </Card>
 
       <PhysicalQuickLog template={template} version={version} location={location} onSave={onSave} />

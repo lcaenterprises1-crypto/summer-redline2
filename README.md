@@ -4,7 +4,7 @@ Build the arm. Transfer the velo.
 
 Summer Redline is a mobile-first React web app for a 13-week summer pitching build. It shows today's plan first, supports optional arm check-ins, recommends green/yellow/red adjustments, stores logs locally, and exports data for backup.
 
-Patch notes: v1.8 - Physical Performance Integration: session templates, Full/Short/Minimum options, location choices, yellow-arm/yellow-knee modifications, upgraded physical logs, and Physical Performance summary.
+Patch notes: v1.9 - Unified Progress + Log Intelligence: Progress now separates overall workload from throwing, hitting, physical, and recovery data, with better earned progression and warning-pattern logic.
 
 Roadmap:
 - v2.0 - Full Integrated Plan + Progress

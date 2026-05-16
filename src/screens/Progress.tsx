@@ -1,8 +1,16 @@
 import type { CheckInRecord, TrainingLog } from "../types";
+import {
+  classifyLog,
+  isHighIntentHittingExposure,
+  isHittingTrainingLog,
+  isPhysicalTrainingLog,
+  isRecoveryTrainingLog,
+  isThrowingTrainingLog,
+  laneText,
+} from "../logic/logClassification";
 import { formatDisplayDate, todayIso, weekFromDate } from "../logic/schedule";
 import { Card } from "../components/Card";
 import { StatusBadge } from "../components/StatusBadge";
-import { isHighIntentHitting } from "../data/hitting";
 
 interface ProgressProps {
   logs: TrainingLog[];
@@ -10,7 +18,7 @@ interface ProgressProps {
   startDate: string;
 }
 
-type EarnedStatus = "Not enough data yet" | "Building base" | "On track" | "Earned soon" | "Earned" | "Hold" | "Back off";
+type EarnedStatus = "Not Enough Throwing Data" | "Hold" | "Build" | "Green-Light" | "Back off";
 type Tone = "neutral" | "good" | "watch" | "danger";
 type TrendLabel = "Stable" | "Improving" | "Watch" | "Back off" | "Not enough data yet";
 
@@ -26,18 +34,24 @@ interface WeeklyRecap {
   logs: TrainingLog[];
   totalSessions: number;
   throwingDays: number;
+  hittingDays: number;
+  physicalDays: number;
   recoveryDays: number;
+  unknownDays: number;
   moundDays: number;
   green: number;
   yellow: number;
   red: number;
+  notChecked: number;
   unloggedDays: number | null;
   summary: string;
 }
 
 interface CleanStreak {
-  current: number;
-  longest: number;
+  overallCurrent: number;
+  overallLongest: number;
+  throwingCurrent: number;
+  throwingLongest: number;
   lastYellow?: string;
   lastRed?: string;
   progressText: string;
@@ -76,6 +90,11 @@ interface HittingSummary {
   contactQualityDays: number;
   recoveryFeelDays: number;
   gameTransferBlocks: number;
+  batSpeedDays: number;
+  evDamageDays: number;
+  microdoseDays: number;
+  gamePrepDays: number;
+  minimumDays: number;
   volumeTrend: string;
   feltTrend: string;
   forearmTrend: string;
@@ -93,16 +112,39 @@ interface PhysicalSummary {
   full: number;
   short: number;
   minimum: number;
+  recovery: number;
+  skipModified: number;
   mainStrength: number;
   upperTrunk: number;
   speedPower: number;
   recoveryTissue: number;
   kneeCapacity: number;
   armCare: number;
+  mobility: number;
   averageRpe: number | null;
   kneeTrend: string;
   armTrend: string;
   energyTrend: string;
+  sorenessTrend: string;
+  painTrend: string;
+}
+
+interface RecoverySummary {
+  hasData: boolean;
+  sessions: number;
+  armCare: number;
+  kneeCapacity: number;
+  mobility: number;
+  better: number;
+  same: number;
+  worse: number;
+  notes: number;
+}
+
+interface SystemTrends {
+  arm: string;
+  knee: string;
+  energy: string;
 }
 
 interface WarningPattern {
@@ -123,6 +165,8 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
   const workload = buildWorkloadSummary(weeklyRecap.logs);
   const hittingSummary = buildHittingSummary(logs, startDate);
   const physicalSummary = buildPhysicalSummary(logs, startDate);
+  const recoverySummary = buildRecoverySummary(logs, startDate);
+  const systemTrends = buildSystemTrends(logs, checkIns);
   const warningPatterns = buildWarningPatterns(logs, checkIns, symptomTrend);
   const earnedProgression = buildEarnedProgression(logs, weeklyRecap, cleanStreak, symptomTrend, warningPatterns);
   const recommendation = buildRecommendation(earnedProgression, warningPatterns, logs.length);
@@ -135,16 +179,14 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
         <p>Earn it. Contain it. Log it. Recover from it.</p>
       </Card>
 
-      <ReadinessSnapshot logs={sortedLogs} checkIns={sortedCheckIns} latestStatus={latestStatus} />
       <WeeklyRecapCard recap={weeklyRecap} />
-      <CleanStreakCard streak={cleanStreak} />
-      <EarnedProgressionCard earned={earnedProgression} />
-      <StatusTrendCard trend={statusTrend} />
-      <SymptomTrendCard symptoms={symptomTrend} />
       <WorkloadCard workload={workload} />
       <HittingSummaryCard summary={hittingSummary} />
-      <WeeklyHittingReviewCard summary={hittingSummary} />
       <PhysicalSummaryCard summary={physicalSummary} />
+      <RecoverySummaryCard summary={recoverySummary} />
+      <SystemTrendsCard trends={systemTrends} />
+      <CleanStreakCard streak={cleanStreak} />
+      <EarnedProgressionCard earned={earnedProgression} />
       <WarningPatternsCard patterns={warningPatterns} />
       <RecommendationCard recommendation={recommendation} earned={earnedProgression} />
     </div>
@@ -197,19 +239,20 @@ function WeeklyRecapCard({ recap }: { recap: WeeklyRecap }) {
     <Card className="progress-card">
       <div className="progress-card-header">
         <div>
-          <span className="eyebrow">Weekly Recap</span>
-          <h3>Week {recap.week}</h3>
+          <span className="eyebrow">Overall Weekly Recap</span>
+          <h3>This Week</h3>
         </div>
       </div>
       <div className="progress-mini-grid">
-        <MiniMetric label="Sessions" value={recap.totalSessions} />
+        <MiniMetric label="Total Sessions" value={recap.totalSessions} />
         <MiniMetric label="Throwing" value={recap.throwingDays} />
+        <MiniMetric label="Hitting" value={recap.hittingDays} />
+        <MiniMetric label="Physical" value={recap.physicalDays} />
         <MiniMetric label="Recovery" value={recap.recoveryDays} />
-        <MiniMetric label="Mound" value={recap.moundDays} />
         <MiniMetric label="Green" value={recap.green} tone="good" />
         <MiniMetric label="Yellow" value={recap.yellow} tone="watch" />
         <MiniMetric label="Red" value={recap.red} tone="danger" />
-        <MiniMetric label="Unlogged" value={recap.unloggedDays ?? "-"} />
+        <MiniMetric label="Not checked" value={recap.notChecked + recap.unknownDays} />
       </div>
       <p className="progress-copy">{recap.summary}</p>
     </Card>
@@ -222,11 +265,14 @@ function CleanStreakCard({ streak }: { streak: CleanStreak }) {
       <div className="progress-card-header">
         <div>
           <span className="eyebrow">Clean Session Streak</span>
-          <h3>{streak.current} current clean sessions</h3>
+          <h3>Overall + throwing-specific</h3>
         </div>
       </div>
       <div className="progress-mini-grid two-up">
-        <MiniMetric label="Longest" value={streak.longest} />
+        <MiniMetric label="Overall clean" value={streak.overallCurrent} />
+        <MiniMetric label="Overall longest" value={streak.overallLongest} />
+        <MiniMetric label="Throwing clean" value={streak.throwingCurrent} />
+        <MiniMetric label="Throwing longest" value={streak.throwingLongest} />
         <MiniMetric label="Last yellow" value={streak.lastYellow ? formatDisplayDate(streak.lastYellow) : "None"} />
         <MiniMetric label="Last red" value={streak.lastRed ? formatDisplayDate(streak.lastRed) : "None"} />
       </div>
@@ -298,8 +344,8 @@ function WorkloadCard({ workload }: { workload: WorkloadSummary }) {
     <Card className="progress-card">
       <div className="progress-card-header">
         <div>
-          <span className="eyebrow">Workload Summary</span>
-          <h3>This week</h3>
+          <span className="eyebrow">Throwing Workload</span>
+          <h3>{workload.hasData ? "This week" : "No throwing logs this week"}</h3>
         </div>
       </div>
       {workload.hasData ? (
@@ -314,7 +360,7 @@ function WorkloadCard({ workload }: { workload: WorkloadSummary }) {
           <MiniMetric label="Recovery days" value={workload.recoveryDays} />
         </div>
       ) : (
-        <p className="progress-copy">Not enough logged data yet. Save a few sessions to see workload, mound exposure, distance, and intent recaps.</p>
+        <p className="progress-copy">Throwing progression needs throwing-specific data. Clean hitting and physical logs support readiness, but do not replace throwing response.</p>
       )}
     </Card>
   );
@@ -337,6 +383,11 @@ function HittingSummaryCard({ summary }: { summary: HittingSummary }) {
             <MiniMetric label="Contact Quality" value={summary.contactQualityDays} />
             <MiniMetric label="Recovery / Feel" value={summary.recoveryFeelDays} />
             <MiniMetric label="Game Transfer" value={summary.gameTransferBlocks} />
+            <MiniMetric label="Bat Speed" value={summary.batSpeedDays} />
+            <MiniMetric label="EV / Damage" value={summary.evDamageDays} />
+            <MiniMetric label="Microdose" value={summary.microdoseDays} />
+            <MiniMetric label="Game Prep" value={summary.gamePrepDays} />
+            <MiniMetric label="Minimum" value={summary.minimumDays} />
             <MiniMetric label="Volume" value={summary.volumeTrend} />
             <MiniMetric label="Felt trend" value={summary.feltTrend} />
             <MiniMetric label="Forearm/hand" value={summary.forearmTrend} />
@@ -401,22 +452,72 @@ function PhysicalSummaryCard({ summary }: { summary: PhysicalSummary }) {
             <MiniMetric label="Full" value={summary.full} />
             <MiniMetric label="Short" value={summary.short} />
             <MiniMetric label="Minimum" value={summary.minimum} />
+            <MiniMetric label="Recovery" value={summary.recovery} />
+            <MiniMetric label="Skip/Modified" value={summary.skipModified} />
             <MiniMetric label="Main Strength" value={summary.mainStrength} />
             <MiniMetric label="Upper + Trunk" value={summary.upperTrunk} />
             <MiniMetric label="Speed + Power" value={summary.speedPower} />
             <MiniMetric label="Recovery/Tissue" value={summary.recoveryTissue} />
             <MiniMetric label="Knee Capacity" value={summary.kneeCapacity} />
             <MiniMetric label="Arm Care" value={summary.armCare} />
+            <MiniMetric label="Mobility" value={summary.mobility} />
             <MiniMetric label="Avg RPE" value={summary.averageRpe === null ? "-" : summary.averageRpe.toFixed(1)} />
             <MiniMetric label="Knee" value={summary.kneeTrend} />
             <MiniMetric label="Arm after" value={summary.armTrend} />
             <MiniMetric label="Energy" value={summary.energyTrend} />
+            <MiniMetric label="Soreness" value={summary.sorenessTrend} />
+            <MiniMetric label="Pain during" value={summary.painTrend} />
           </div>
           <p className="progress-copy">{summary.sessions === 1 ? "One physical log saved. Useful snapshot, not a trend yet." : "Physical work is being tracked across strength, speed, knee, arm support, and recovery."}</p>
         </>
       ) : (
         <p className="progress-copy">Log Physical Performance sessions to unlock strength, speed, knee, arm support, and recovery trends.</p>
       )}
+    </Card>
+  );
+}
+
+function RecoverySummaryCard({ summary }: { summary: RecoverySummary }) {
+  return (
+    <Card className="progress-card">
+      <div className="progress-card-header">
+        <div>
+          <span className="eyebrow">Recovery Summary</span>
+          <h3>This week</h3>
+        </div>
+      </div>
+      {summary.hasData ? (
+        <div className="progress-mini-grid">
+          <MiniMetric label="Recovery Sessions" value={summary.sessions} />
+          <MiniMetric label="Arm care" value={summary.armCare} />
+          <MiniMetric label="Knee capacity" value={summary.kneeCapacity} />
+          <MiniMetric label="Mobility" value={summary.mobility} />
+          <MiniMetric label="Felt better" value={summary.better} tone="good" />
+          <MiniMetric label="Same" value={summary.same} />
+          <MiniMetric label="Worse" value={summary.worse} tone={summary.worse ? "watch" : "neutral"} />
+          <MiniMetric label="Notes" value={summary.notes} />
+        </div>
+      ) : (
+        <p className="progress-copy">Log recovery work to track arm care, knee capacity, mobility, and next-day response.</p>
+      )}
+    </Card>
+  );
+}
+
+function SystemTrendsCard({ trends }: { trends: SystemTrends }) {
+  return (
+    <Card className="progress-card">
+      <div className="progress-card-header">
+        <div>
+          <span className="eyebrow">Arm / Knee / Energy Trends</span>
+          <h3>Lane-aware read</h3>
+        </div>
+      </div>
+      <div className="symptom-list">
+        <ReviewRow label="Arm Trend" value={trends.arm} />
+        <ReviewRow label="Knee Trend" value={trends.knee} />
+        <ReviewRow label="Energy Trend" value={trends.energy} />
+      </div>
     </Card>
   );
 }
@@ -528,8 +629,11 @@ function buildWeeklyRecap(logs: TrainingLog[], startDate: string): WeeklyRecap {
   const week = Math.max(1, weekFromDate(todayIso(), startDate));
   const weekLogs = logs.filter((log) => Math.max(1, weekFromDate(log.date, startDate)) === week);
   const statusCounts = countStatuses(weekLogs);
-  const throwingDays = weekLogs.filter(isThrowingLog).length;
-  const recoveryDays = weekLogs.filter(isRecoveryLog).length;
+  const throwingDays = weekLogs.filter(isThrowingTrainingLog).length;
+  const hittingDays = weekLogs.filter(isHittingTrainingLog).length;
+  const physicalDays = weekLogs.filter(isPhysicalTrainingLog).length;
+  const recoveryDays = weekLogs.filter(isRecoveryTrainingLog).length;
+  const unknownDays = weekLogs.filter((log) => classifyLog(log) === "unknown").length;
   const moundDays = weekLogs.filter((log) => safeNumber(log.moundPitches) > 0 || textIncludes(log.actualDayType, "mound")).length;
   const unloggedDays = weekLogs.length ? estimateUnloggedDays(weekLogs, startDate, week) : null;
 
@@ -538,48 +642,44 @@ function buildWeeklyRecap(logs: TrainingLog[], startDate: string): WeeklyRecap {
     logs: weekLogs,
     totalSessions: weekLogs.length,
     throwingDays,
+    hittingDays,
+    physicalDays,
     recoveryDays,
+    unknownDays,
     moundDays,
     green: statusCounts.green,
     yellow: statusCounts.yellow,
     red: statusCounts.red,
+    notChecked: statusCounts.notChecked,
     unloggedDays,
-    summary: weeklySummaryText(weekLogs.length, statusCounts),
+    summary: weeklySummaryText(weekLogs, statusCounts, throwingDays),
   };
 }
 
 function buildCleanStreak(logs: TrainingLog[]): CleanStreak {
   const newest = sortLogsNewestFirst(logs);
   const oldest = [...logs].sort((a, b) => a.date.localeCompare(b.date));
-  let current = 0;
-  let longest = 0;
-  let running = 0;
+  const newestThrowing = newest.filter(isThrowingTrainingLog);
+  const oldestThrowing = oldest.filter(isThrowingTrainingLog);
 
-  for (const log of newest) {
-    if (!isCleanLog(log)) break;
-    current += 1;
-  }
-
-  for (const log of oldest) {
-    if (isCleanLog(log)) {
-      running += 1;
-      longest = Math.max(longest, running);
-    } else {
-      running = 0;
-    }
-  }
+  const overallCurrent = currentCleanRun(newest);
+  const overallLongest = longestCleanRun(oldest);
+  const throwingCurrent = currentCleanRun(newestThrowing);
+  const throwingLongest = longestCleanRun(oldestThrowing);
 
   const lastYellow = newest.find((log) => log.armStatus === "yellow")?.date;
   const lastRed = newest.find((log) => log.armStatus === "red")?.date;
-  const need = Math.max(0, 7 - current);
+  const need = Math.max(0, 3 - throwingCurrent);
   const progressText =
     logs.length === 0
       ? "Log a few sessions to start tracking clean streaks and earned exposure."
-      : need > 0
-        ? `Need ${need} more clean ${need === 1 ? "session" : "sessions"} before considering an earned extension day.`
-        : "Clean streak is strong. Any added exposure should still be planned, contained, and logged.";
+      : throwingCurrent === 0
+        ? "Overall clean logs help readiness, but throwing clean streak needs throwing logs."
+        : need > 0
+          ? `Need ${need} more clean throwing ${need === 1 ? "session" : "sessions"} before considering an earned throwing progression touch.`
+          : "Throwing clean streak is building. Any added exposure should still be planned, contained, and logged.";
 
-  return { current, longest, lastYellow, lastRed, progressText };
+  return { overallCurrent, overallLongest, throwingCurrent, throwingLongest, lastYellow, lastRed, progressText };
 }
 
 function buildStatusTrend(logs: TrainingLog[]) {
@@ -629,7 +729,8 @@ function buildSymptomTrend(logs: TrainingLog[], checkIns: CheckInRecord[]): Symp
 }
 
 function buildWorkloadSummary(logs: TrainingLog[]): WorkloadSummary {
-  if (logs.length === 0) {
+  const throwingLogs = logs.filter(isThrowingTrainingLog);
+  if (throwingLogs.length === 0) {
     return {
       hasData: false,
       throwingSessions: 0,
@@ -643,24 +744,24 @@ function buildWorkloadSummary(logs: TrainingLog[]): WorkloadSummary {
     };
   }
 
-  const maxIntent = Math.max(...logs.map((log) => maxNumberFromText(log.intentRange)), 0);
+  const maxIntent = Math.max(...throwingLogs.map((log) => maxNumberFromText(log.intentRange)), 0);
 
   return {
     hasData: true,
-    throwingSessions: logs.filter(isThrowingLog).length,
-    estimatedThrows: logs.reduce((sum, log) => sum + safeNumber(log.totalThrows), 0),
-    highestThrowCount: Math.max(...logs.map((log) => safeNumber(log.totalThrows)), 0),
-    longestDistance: Math.max(...logs.map((log) => safeNumber(log.maxDistanceFt)), 0),
-    highestIntent: maxIntent ? `${maxIntent}%` : logs.some((log) => safeNumber(log.highIntentThrows) > 0) ? "High intent logged" : "Not logged",
-    moundSessions: logs.filter((log) => safeNumber(log.moundPitches) > 0 || textIncludes(log.actualDayType, "mound")).length,
-    plyoDays: logs.filter((log) => Array.isArray(log.drillIds) && log.drillIds.some(isPlyoDrillId)).length,
-    recoveryDays: logs.filter(isRecoveryLog).length,
+    throwingSessions: throwingLogs.length,
+    estimatedThrows: throwingLogs.reduce((sum, log) => sum + safeNumber(log.totalThrows), 0),
+    highestThrowCount: Math.max(...throwingLogs.map((log) => safeNumber(log.totalThrows)), 0),
+    longestDistance: Math.max(...throwingLogs.map((log) => safeNumber(log.maxDistanceFt)), 0),
+    highestIntent: maxIntent ? `${maxIntent}%` : throwingLogs.some((log) => safeNumber(log.highIntentThrows) > 0) ? "High intent logged" : "Not logged",
+    moundSessions: throwingLogs.filter((log) => safeNumber(log.moundPitches) > 0 || textIncludes(log.actualDayType, "mound")).length,
+    plyoDays: throwingLogs.filter((log) => Array.isArray(log.drillIds) && log.drillIds.some(isPlyoDrillId)).length,
+    recoveryDays: throwingLogs.filter((log) => textIncludes(log.actualDayType, "recovery") || textIncludes(log.actualDayType, "catch")).length,
   };
 }
 
 function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSummary {
   const week = Math.max(1, weekFromDate(todayIso(), startDate));
-  const hittingLogs = logs.filter((log) => log.lane === "hitting");
+  const hittingLogs = logs.filter(isHittingTrainingLog);
   const weekLogs = hittingLogs.filter((log) => Math.max(1, weekFromDate(log.date, startDate)) === week);
 
   if (weekLogs.length === 0) {
@@ -671,6 +772,11 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
       contactQualityDays: 0,
       recoveryFeelDays: 0,
       gameTransferBlocks: 0,
+      batSpeedDays: 0,
+      evDamageDays: 0,
+      microdoseDays: 0,
+      gamePrepDays: 0,
+      minimumDays: 0,
       volumeTrend: "No data",
       feltTrend: "No data",
       forearmTrend: "No data",
@@ -690,10 +796,15 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
   return {
     hasData: true,
     touches: weekLogs.length,
-    highIntentExposures: weekLogs.filter(isHighIntentHittingLog).length,
+    highIntentExposures: weekLogs.filter(isHighIntentHittingExposure).length,
     contactQualityDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Contact Quality") || textIncludes(log.actualDayType, "contact quality")).length,
     recoveryFeelDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Recovery / Feel") || textIncludes(log.actualDayType, "recovery / feel")).length,
     gameTransferBlocks: weekLogs.filter((log) => laneText(log, "sessionType").includes("Game Transfer") || textIncludes(log.actualDayType, "game transfer")).length,
+    batSpeedDays: weekLogs.filter((log) => laneText(log, "sessionType") === "Bat Speed" || textIncludes(log.actualDayType, "bat speed")).length,
+    evDamageDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("EV / Damage") || textIncludes(log.actualDayType, "ev / damage")).length,
+    microdoseDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Microdose") || textIncludes(log.actualDayType, "microdose")).length,
+    gamePrepDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Game Prep") || textIncludes(log.actualDayType, "game prep")).length,
+    minimumDays: weekLogs.filter((log) => laneText(log, "sessionType").includes("Minimum") || textIncludes(log.actualDayType, "minimum")).length,
     volumeTrend: summarizeRecentLaneText(weekLogs, "swingVolume"),
     feltTrend: summarizeRecentLaneText(weekLogs, "hittingFelt"),
     forearmTrend: summarizeFatigue(weekLogs, "forearmFatigue"),
@@ -708,7 +819,7 @@ function buildHittingSummary(logs: TrainingLog[], startDate: string): HittingSum
 
 function buildPhysicalSummary(logs: TrainingLog[], startDate: string): PhysicalSummary {
   const week = Math.max(1, weekFromDate(todayIso(), startDate));
-  const weekLogs = logs.filter((log) => log.lane === "physical" && Math.max(1, weekFromDate(log.date, startDate)) === week);
+  const weekLogs = logs.filter((log) => isPhysicalTrainingLog(log) && Math.max(1, weekFromDate(log.date, startDate)) === week);
 
   if (weekLogs.length === 0) {
     return {
@@ -717,16 +828,21 @@ function buildPhysicalSummary(logs: TrainingLog[], startDate: string): PhysicalS
       full: 0,
       short: 0,
       minimum: 0,
+      recovery: 0,
+      skipModified: 0,
       mainStrength: 0,
       upperTrunk: 0,
       speedPower: 0,
       recoveryTissue: 0,
       kneeCapacity: 0,
       armCare: 0,
+      mobility: 0,
       averageRpe: null,
       kneeTrend: "No data",
       armTrend: "No data",
       energyTrend: "No data",
+      sorenessTrend: "No data",
+      painTrend: "No data",
     };
   }
 
@@ -738,17 +854,68 @@ function buildPhysicalSummary(logs: TrainingLog[], startDate: string): PhysicalS
     full: countLaneText(weekLogs, "version", "Full"),
     short: countLaneText(weekLogs, "version", "Short"),
     minimum: countLaneText(weekLogs, "version", "Minimum"),
+    recovery: countLaneText(weekLogs, "version", "Recovery"),
+    skipModified: countLaneText(weekLogs, "version", "Skip") + countLaneText(weekLogs, "status", "Modified") + countLaneText(weekLogs, "status", "Skipped"),
     mainStrength: countSessionType(weekLogs, "Main Strength"),
     upperTrunk: countSessionType(weekLogs, "Upper + Trunk"),
     speedPower: countSessionType(weekLogs, "Speed + Power"),
     recoveryTissue: countSessionType(weekLogs, "Recovery / Tissue"),
     kneeCapacity: countSessionType(weekLogs, "Knee Capacity"),
     armCare: countSessionType(weekLogs, "Arm Care"),
+    mobility: countSessionType(weekLogs, "Mobility"),
     averageRpe: rpeValues.length ? average(rpeValues) : null,
     kneeTrend: summarizeRecentLaneText(weekLogs, "kneeAfter"),
     armTrend: summarizeRecentLaneText(weekLogs, "armAfter"),
     energyTrend: summarizeRecentPhysicalEnergy(weekLogs),
+    sorenessTrend: summarizeRecentLaneText(weekLogs, "soreness"),
+    painTrend: summarizeRecentLaneText(weekLogs, "painDuring"),
   };
+}
+
+function buildRecoverySummary(logs: TrainingLog[], startDate: string): RecoverySummary {
+  const week = Math.max(1, weekFromDate(todayIso(), startDate));
+  const weekLogs = logs.filter((log) => isRecoveryTrainingLog(log) && Math.max(1, weekFromDate(log.date, startDate)) === week);
+  if (weekLogs.length === 0) {
+    return { hasData: false, sessions: 0, armCare: 0, kneeCapacity: 0, mobility: 0, better: 0, same: 0, worse: 0, notes: 0 };
+  }
+
+  return {
+    hasData: true,
+    sessions: weekLogs.length,
+    armCare: countYes(weekLogs, "armCare"),
+    kneeCapacity: countYes(weekLogs, "kneeCapacity"),
+    mobility: countYes(weekLogs, "mobility"),
+    better: countLaneText(weekLogs, "feltBetter", "Better"),
+    same: countLaneText(weekLogs, "feltBetter", "Same"),
+    worse: countLaneText(weekLogs, "feltBetter", "Worse"),
+    notes: weekLogs.filter((log) => Boolean(log.notes)).length,
+  };
+}
+
+function buildSystemTrends(logs: TrainingLog[], checkIns: CheckInRecord[]): SystemTrends {
+  const recent = logsInLastDays(logs, 14);
+  const throwing = recent.filter(isThrowingTrainingLog);
+  const hitting = recent.filter(isHittingTrainingLog);
+  const physical = recent.filter(isPhysicalTrainingLog);
+  const recovery = recent.filter(isRecoveryTrainingLog);
+
+  const arm =
+    throwing.length > 0
+      ? `Primary: throwing logs. ${statusSentence(countStatuses(throwing))} Support: ${supportArmSentence(hitting, physical)}`
+      : `Primary: throwing logs. No recent throwing data. Support: ${supportArmSentence(hitting, physical)} Throwing-specific arm response still needs data.`;
+
+  const knee =
+    physical.length > 0
+      ? `Primary: physical logs. Knee: ${summarizeRecentLaneText(physical, "kneeAfter")}. Keep impact, sprinting, jumping, and painful knee-dominant work modified if yellow.`
+      : "Primary: physical logs. No recent physical knee data. Keep logging knee response after physical sessions.";
+
+  const checkInEnergy = checkIns.filter((checkIn) => daysAgo(checkIn.date) < 14).map((checkIn) => checkIn.input?.bodyFatigue).filter((value): value is number => typeof value === "number");
+  const energy =
+    physical.length || recovery.length || checkInEnergy.length
+      ? `Based on physical/recovery logs and check-ins. Physical energy: ${summarizeRecentPhysicalEnergy(physical)}. ${energyAdvice(physical, checkInEnergy)}`
+      : "No recent energy data. If energy is yellow, keep the main priority and cut optional work.";
+
+  return { arm, knee, energy };
 }
 
 function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], symptoms: SymptomSummary[]): WarningPattern[] {
@@ -757,22 +924,32 @@ function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], sy
   const recentEvidenceCount = recent.length + recentCheckIns.length;
   const patterns: WarningPattern[] = [];
 
-  if (recent.some((log) => log.armStatus === "red")) {
-    patterns.push({ tone: "danger", text: "Red status showed up recently. Back off until response is clean again." });
+  const recentRedLog = recent.find((log) => log.armStatus === "red");
+  if (recentRedLog) {
+    const lane = classifyLog(recentRedLog);
+    patterns.push({ tone: "danger", text: `${titleCase(lane)} red status showed up recently. Back off until response is clean again.` });
   }
 
-  if (recent.some((log) => highIntentSignal(log) && (log.armStatus === "yellow" || log.armStatus === "red"))) {
-    patterns.push({ tone: "watch", text: "Yellow/red signs showed up after higher intent. Keep the next session controlled." });
+  if (recent.some((log) => (highIntentSignal(log) || isHighIntentHittingExposure(log)) && (log.armStatus === "yellow" || log.armStatus === "red"))) {
+    patterns.push({ tone: "watch", text: "High-output warning detected. Yellow/red signs showed up after higher intent. Keep the next session controlled." });
   }
 
-  if (recent.some((log) => isThrowingLog(log) && (safeNumber(log.forearmTightnessAfter) >= 2 || safeNumber(log.bicepsTightnessAfter) >= 2))) {
-    patterns.push({ tone: "watch", text: "Forearm/biceps symptoms appeared after throwing days. Do not ignore tightness just because pain is low." });
+  if (recent.some((log) => isThrowingTrainingLog(log) && (safeNumber(log.forearmTightnessAfter) >= 2 || safeNumber(log.bicepsTightnessAfter) >= 2))) {
+    patterns.push({ tone: "watch", text: "Throwing warning detected: forearm/biceps symptoms appeared after throwing. Do not ignore tightness just because pain is low." });
+  }
+
+  if (recent.some((log) => isHittingTrainingLog(log) && ["Moderate", "High"].includes(laneText(log, "forearmFatigue")))) {
+    patterns.push({ tone: "watch", text: "Hitting forearm/hand warning detected. Keep high-intent hitting contained until response is clean." });
+  }
+
+  if (recent.some((log) => isPhysicalTrainingLog(log) && (laneText(log, "kneeAfter") === "Yellow" || laneText(log, "kneeAfter") === "Red" || laneText(log, "painDuring") === "Knee"))) {
+    patterns.push({ tone: "watch", text: "Physical knee warning detected. Modify impact, sprinting, jumping, and painful knee-dominant work." });
   }
 
   const risingSymptoms = symptoms.some((symptom) => symptom.direction === "rising");
   const warningSymptoms = symptoms.some((symptom) => symptom.direction === "warning");
   if (recentEvidenceCount < 3 && (risingSymptoms || warningSymptoms)) {
-    patterns.push({ tone: "watch", text: "Past warning detected. Need more recent logs before calling this a trend." });
+    patterns.push({ tone: "watch", text: "Past warning detected. Keep logging recent response before changing the plan." });
   } else if (risingSymptoms) {
     patterns.push({ tone: "watch", text: "Symptoms are trending up. Hold the current level until the response settles." });
   } else if (warningSymptoms) {
@@ -803,17 +980,19 @@ function buildEarnedProgression(
 ): EarnedProgression {
   const recent = logsInLastDays(logs, 14);
   const recent7 = logsInLastDays(logs, 7);
-  const cleanThrowing = recent.filter((log) => isCleanLog(log) && isThrowingLog(log)).length;
+  const throwing = recent.filter(isThrowingTrainingLog);
+  const cleanThrowing = throwing.filter(isCleanLog).length;
+  const cleanSupport = recent.filter((log) => (isHittingTrainingLog(log) || isPhysicalTrainingLog(log) || isRecoveryTrainingLog(log)) && isCleanLog(log)).length;
   const symptomWarning = symptoms.some((symptom) => symptom.direction === "rising" || symptom.direction === "warning");
   const redRecent = recent.some((log) => log.armStatus === "red");
   const yellowRecent = recent7.filter((log) => log.armStatus === "yellow").length;
-  const nextMorning = recent.some((log) => Boolean(log.nextMorningSymptoms));
+  const nextMorning = throwing.some((log) => Boolean(log.nextMorningSymptoms));
 
-  if (logs.length < 3) {
+  if (throwing.length === 0) {
     return {
-      status: "Not enough data yet",
+      status: "Not Enough Throwing Data",
       tone: "neutral",
-      detail: "Log at least three sessions before judging progression. The first goal is honest data, not more exposure.",
+      detail: "Overall response may be clean, but throwing progression still needs throwing-specific logs.",
     };
   }
 
@@ -833,52 +1012,47 @@ function buildEarnedProgression(
     };
   }
 
-  if (streak.current >= 10 && cleanThrowing >= 4 && recap.throwingDays >= 3) {
+  if (cleanThrowing >= 3 && streak.throwingCurrent >= 3 && cleanSupport >= 1 && recap.throwingDays >= 2) {
     return {
-      status: "Earned",
+      status: "Green-Light",
       tone: "good",
-      detail: "You have stacked clean sessions. A small planned exposure can be considered, but keep it contained and log the response.",
+      detail: "Throwing response is clean and support work is not creating issues. You may add one earned progression touch. Add one thing only, not everything.",
     };
   }
 
-  if (streak.current >= 7 && cleanThrowing >= 3) {
+  if (cleanThrowing >= 1) {
     return {
-      status: "Earned soon",
-      tone: "good",
-      detail: "You are close. Keep stacking clean throwing sessions before adding long toss, radar, or higher-intent work.",
-    };
-  }
-
-  if (streak.current >= 4 && recap.green >= recap.yellow + recap.red) {
-    return {
-      status: "On track",
-      tone: "good",
-      detail: `${streak.current} clean sessions logged. Keep stacking. Do not add long toss or radar yet.`,
+      status: "Build",
+      tone: "neutral",
+      detail: cleanSupport > 0 ? "Clean support work helps, but keep the next throwing progression conservative until more throwing response is logged." : "Follow the planned progression. Keep stacking clean throwing sessions.",
     };
   }
 
   return {
-    status: "Building base",
+    status: "Hold",
     tone: "neutral",
-    detail: "The base is still being built. Stay conservative, keep logging, and let clean next-morning responses pile up.",
+    detail: "Throwing response is not clearly clean yet. Keep the next session conservative and log it honestly.",
   };
 }
 
 function buildRecommendation(earned: EarnedProgression, warnings: WarningPattern[], logCount: number): string {
   if (logCount < 3) return "Recommendation: Need more logs before judging. Log the next few sessions honestly and keep the plan conservative.";
+  if (earned.status === "Not Enough Throwing Data") return "Recommendation: Keep following the plan, but do not earn extra throwing exposure yet. Log the next throwing session honestly.";
   if (earned.status === "Back off") return "Recommendation: Recovery emphasis. No throwing add-ons until red flags and next-morning response are clean.";
-  if (earned.status === "Hold") return "Recommendation: Hold current level. You are close to earning more, but the next session should stay controlled.";
-  if (earned.status === "Earned") return "Recommendation: Progress normally only if the next session is planned, contained, logged, and followed by a clean morning.";
-  if (earned.status === "Earned soon") return "Recommendation: Keep current level for a few more clean sessions. Earned exposure is close, not automatic.";
+  if (earned.status === "Hold") return "Recommendation: Hold current level. Use the conservative path and protect the next-morning response.";
+  if (earned.status === "Green-Light") return "Recommendation: Follow normal progression and add one earned progression touch only if it is planned, contained, and logged.";
+  if (earned.status === "Build") return "Recommendation: Follow the planned progression. Hitting and physical work can support the plan, but throwing response is still the main evidence.";
   if (warnings.length) return "Recommendation: Keep next session conservative and watch the pattern before adding stress.";
   return "Recommendation: Progress normally within the plan. No random aggression. Earn it, contain it, log it, recover from it.";
 }
 
-function weeklySummaryText(total: number, counts: StatusCounts): string {
+function weeklySummaryText(logs: TrainingLog[], counts: StatusCounts, throwingDays: number): string {
+  const total = logs.length;
   if (total === 0) return "Not enough logged data yet. Log a few sessions to unlock weekly trends.";
-  if (counts.red > 0) return `This week: ${total} sessions logged. ${counts.green} green, ${counts.yellow} yellow, ${counts.red} red. Back off and protect recovery.`;
-  if (counts.yellow > 0) return `This week: ${total} sessions logged. ${counts.green} green, ${counts.yellow} yellow, 0 red. Arm response is mostly clean, but keep the next session controlled.`;
-  return `This week: ${total} sessions logged. ${counts.green} green, 0 yellow, 0 red. Arm response is clean. Keep stacking.`;
+  if (counts.red > 0) return `This week: ${total} sessions logged. ${counts.green} green, ${counts.yellow} yellow, ${counts.red} red. Overall response is mixed. Keep the next session conservative until the trend clears.`;
+  if (counts.yellow > 0) return `This week: ${total} sessions logged. ${counts.green} green, ${counts.yellow} yellow, 0 red. Overall response is mostly clean, but keep the next session controlled.`;
+  if (throwingDays === 0) return `Overall response is clean this week, but throwing-specific workload still needs more logs before judging arm progression.`;
+  return `Overall response is clean this week. Keep stacking.`;
 }
 
 function snapshotText(status: TrainingLog["armStatus"], symptomScore: number | null, nextMorning?: boolean): string {
@@ -893,8 +1067,9 @@ function snapshotText(status: TrainingLog["armStatus"], symptomScore: number | n
 function recommendationTitle(status: EarnedStatus): string {
   if (status === "Back off") return "Recovery emphasis";
   if (status === "Hold") return "Hold current level";
-  if (status === "Not enough data yet") return "Need more logs";
-  if (status === "Earned" || status === "Earned soon") return "Earned exposure is close";
+  if (status === "Not Enough Throwing Data") return "Need throwing logs";
+  if (status === "Green-Light") return "One progression touch";
+  if (status === "Build") return "Build within the plan";
   return "Progress within the plan";
 }
 
@@ -1013,33 +1188,8 @@ function isCleanLog(log: TrainingLog): boolean {
   );
 }
 
-function isThrowingLog(log: TrainingLog): boolean {
-  if (log.lane && log.lane !== "throwing") return false;
-  return safeNumber(log.totalThrows) > 0 || textIncludes(log.actualDayType, "catch") || textIncludes(log.actualDayType, "mound") || textIncludes(log.actualDayType, "build") || textIncludes(log.actualDayType, "velo");
-}
-
-function isRecoveryLog(log: TrainingLog): boolean {
-  if (log.lane) return log.lane === "recovery";
-  return safeNumber(log.totalThrows) === 0 || textIncludes(log.actualDayType, "recovery") || textIncludes(log.actualDayType, "arm-care") || textIncludes(log.actualDayType, "off");
-}
-
 function highIntentSignal(log: TrainingLog): boolean {
   return safeNumber(log.highIntentThrows) > 0 || maxNumberFromText(log.intentRange) >= 75 || textIncludes(log.actualDayType, "high-intent") || textIncludes(log.actualDayType, "velo");
-}
-
-function isHighIntentHittingLog(log: TrainingLog): boolean {
-  return (
-    log.lane === "hitting" &&
-    (log.laneData?.highIntent === true ||
-      isHighIntentHitting(laneText(log, "sessionType")) ||
-      textIncludes(log.actualDayType, "bat speed") ||
-      textIncludes(log.actualDayType, "ev / damage"))
-  );
-}
-
-function laneText(log: TrainingLog, key: string): string {
-  const value = log.laneData?.[key];
-  return typeof value === "string" ? value : "";
 }
 
 function summarizeRecentLaneText(logs: TrainingLog[], key: string): string {
@@ -1087,6 +1237,56 @@ function countSessionType(logs: TrainingLog[], search: string): number {
   return logs.filter((log) => laneText(log, "sessionType").includes(search) || textIncludes(log.actualDayType, search)).length;
 }
 
+function countYes(logs: TrainingLog[], key: string): number {
+  return logs.filter((log) => laneText(log, key) === "Yes").length;
+}
+
+function currentCleanRun(logsNewestFirst: TrainingLog[]): number {
+  let current = 0;
+  for (const log of logsNewestFirst) {
+    if (!isCleanLog(log)) break;
+    current += 1;
+  }
+  return current;
+}
+
+function longestCleanRun(logsOldestFirst: TrainingLog[]): number {
+  let longest = 0;
+  let running = 0;
+  for (const log of logsOldestFirst) {
+    if (isCleanLog(log)) {
+      running += 1;
+      longest = Math.max(longest, running);
+    } else {
+      running = 0;
+    }
+  }
+  return longest;
+}
+
+function statusSentence(counts: StatusCounts): string {
+  if (counts.red > 0) return `${counts.red} red recent throwing response.`;
+  if (counts.yellow > 0) return `${counts.yellow} yellow recent throwing response.`;
+  if (counts.green > 0) return `${counts.green} green recent throwing response.`;
+  return "No checked status yet.";
+}
+
+function supportArmSentence(hitting: TrainingLog[], physical: TrainingLog[]): string {
+  const support = [...hitting, ...physical];
+  if (support.length === 0) return "No support-lane arm data yet.";
+  const warning = support.some((log) => {
+    const armAfter = laneText(log, "armAfter").toLowerCase();
+    return log.armStatus === "yellow" || log.armStatus === "red" || armAfter === "yellow" || armAfter === "red" || ["Moderate", "High"].includes(laneText(log, "forearmFatigue"));
+  });
+  return warning ? "Support lanes show arm/forearm caution." : "Support lanes are arm-clean.";
+}
+
+function energyAdvice(physical: TrainingLog[], checkInEnergy: number[]): string {
+  if (physical.some((log) => laneText(log, "energyAfter") === "Red") || checkInEnergy.some((value) => value >= 5)) return "Recovery version recommended.";
+  if (physical.some((log) => laneText(log, "energyAfter") === "Yellow") || checkInEnergy.some((value) => value >= 4)) return "Keep the main priority but cut optional work.";
+  return "Energy is supporting normal training.";
+}
+
 function hittingWeeklyStatus(summary: HittingSummary): "Conservative" | "Normal" | "Green-Light" {
   if (!summary.hasData || summary.touches <= 1 || summary.forearmTrend === "High" || summary.trunkTrend === "High") return "Conservative";
   if (summary.highIntentExposures > 1 || summary.forearmTrend === "Moderate" || summary.trunkTrend === "Moderate") return "Normal";
@@ -1112,7 +1312,7 @@ function backToBackThrowingWarning(logs: TrainingLog[]): boolean {
       safeNumber(current.forearmTightnessAfter) >= 2 ||
       safeNumber(current.bicepsTightnessAfter) >= 2 ||
       Boolean(current.nextMorningSymptoms);
-    if (consecutive && isThrowingLog(previous) && isThrowingLog(current) && warning) return true;
+    if (consecutive && isThrowingTrainingLog(previous) && isThrowingTrainingLog(current) && warning) return true;
   }
   return false;
 }
@@ -1177,4 +1377,8 @@ function safeNumber(value: unknown, fallback = 0): number {
 
 function textIncludes(value: unknown, search: string): boolean {
   return typeof value === "string" && value.toLowerCase().includes(search);
+}
+
+function titleCase(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

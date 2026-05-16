@@ -1,5 +1,6 @@
 import { Trash2 } from "lucide-react";
 import type { Drill, SessionPlan, TrainingLog } from "../types";
+import { isHighIntentHittingExposure, isThrowingTrainingLog } from "../logic/logClassification";
 import { formatDisplayDate } from "../logic/schedule";
 import { AccordionCard } from "../components/AccordionCard";
 import { Button } from "../components/Button";
@@ -61,20 +62,22 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
               </div>
               {log.lane ? <span className="lane-log-badge">{log.lane}</span> : null}
               <h3>{log.actualDayType}</h3>
-              <dl className="compact-details">
-                <div>
-                  <dt>Throws</dt>
-                  <dd>{log.totalThrows}</dd>
-                </div>
-                <div>
-                  <dt>High intent</dt>
-                  <dd>{log.highIntentThrows}</dd>
-                </div>
-                <div>
-                  <dt>Mound</dt>
-                  <dd>{log.moundPitches}</dd>
-                </div>
-              </dl>
+              {isThrowingTrainingLog(log) ? (
+                <dl className="compact-details">
+                  <div>
+                    <dt>Throws</dt>
+                    <dd>{log.totalThrows}</dd>
+                  </div>
+                  <div>
+                    <dt>High intent</dt>
+                    <dd>{log.highIntentThrows}</dd>
+                  </div>
+                  <div>
+                    <dt>Mound</dt>
+                    <dd>{log.moundPitches}</dd>
+                  </div>
+                </dl>
+              ) : null}
               {log.laneData ? <LaneLogDetails log={log} /> : null}
               <p className="note">{log.mainCue || "No cue logged"}</p>
               {log.drillIds?.length > 0 ? (
@@ -102,6 +105,7 @@ function LaneLogDetails({ log }: { log: TrainingLog }) {
         <Detail label="Status" value={log.laneData.status} />
         <Detail label="Session" value={log.laneData.sessionType ?? log.plannedDayType} />
         <Detail label="Intent" value={log.laneData.intent} />
+        <Detail label="High Intent Exposure" value={isHighIntentHittingExposure(log) ? "Yes" : "No"} />
         <Detail label="Volume" value={log.laneData.swingVolume} />
         {positiveValue(log.laneData.exactSwings) ? <Detail label="Swings" value={log.laneData.exactSwings} /> : null}
         <Detail label="Best contact" value={log.laneData.bestDirection ?? log.laneData.outputBestContact} />
