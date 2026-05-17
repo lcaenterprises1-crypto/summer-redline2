@@ -1,4 +1,5 @@
 import { Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { Drill, SessionPlan, TrainingLog } from "../types";
 import { isHighIntentHittingExposure, isThrowingTrainingLog } from "../logic/logClassification";
 import { formatDisplayDate } from "../logic/schedule";
@@ -18,7 +19,12 @@ interface LogProps {
 }
 
 export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) {
+  const [laneFilter, setLaneFilter] = useState<"all" | "throwing" | "hitting" | "physical" | "recovery">("all");
   const drillNames = new Map(drills.map((drill) => [drill.id, drill.name]));
+  const visibleLogs = useMemo(
+    () => (laneFilter === "all" ? logs : logs.filter((log) => (log.lane ?? (isThrowingTrainingLog(log) ? "throwing" : "recovery")) === laneFilter)),
+    [laneFilter, logs],
+  );
 
   return (
     <div className="screen stack">
@@ -48,13 +54,21 @@ export function Log({ logs, drills, draftSession, onSave, onDelete }: LogProps) 
         </div>
       </div>
 
+      <div className="log-filter-tabs" aria-label="Filter saved logs">
+        {(["all", "throwing", "hitting", "physical", "recovery"] as const).map((lane) => (
+          <button key={lane} type="button" className={laneFilter === lane ? "active" : ""} onClick={() => setLaneFilter(lane)}>
+            {lane}
+          </button>
+        ))}
+      </div>
+
       <div className="card-list">
-        {logs.length === 0 ? (
+        {visibleLogs.length === 0 ? (
           <Card>
-            <p className="muted-line">No logs yet. The plan still works without them.</p>
+            <p className="muted-line">No logs here yet. Use Quick Log from Today when you finish a session.</p>
           </Card>
         ) : (
-          logs.map((log) => (
+          visibleLogs.map((log) => (
             <Card key={log.id} className="log-card">
               <div className="card-topline">
                 <span>{formatDisplayDate(log.date)}</span>

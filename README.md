@@ -1,13 +1,13 @@
 # Summer Redline
 
-Build the arm. Transfer the velo.
+Baseball Development Dashboard
 
-Summer Redline is a mobile-first React web app for a 13-week summer pitching build. It shows today's plan first, supports optional arm check-ins, recommends green/yellow/red adjustments, stores logs locally, and exports data for backup.
+Summer Redline is a mobile-first baseball development dashboard for throwing, hitting, physical performance, recovery, readiness, logging, and earned progression.
 
-Patch notes: v1.9.2 - Warning Pattern Micro-Polish: warning cards now avoid vague duplicates and prioritize lane-specific guidance.
+Patch notes: v2.0 - Premium UX Rebuild: cleaner visual system, redesigned Today dashboard, session detail pages, faster logging flow, Progress lane tabs, official May 18 start date, and reduced text-heavy clutter.
 
 Roadmap:
-- v2.0 - Full Integrated Plan + Progress
+- v2.x - Full Integrated Plan + Progress
 
 ## Run Locally
 

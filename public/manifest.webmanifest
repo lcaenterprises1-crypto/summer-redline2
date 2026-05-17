@@ -1,11 +1,11 @@
 {
   "name": "Summer Redline",
   "short_name": "Redline",
-  "description": "Build the arm. Transfer the velo.",
+  "description": "Baseball Development Dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#07080a",
+  "theme_color": "#07080a",
   "orientation": "portrait",
   "icons": [
     {

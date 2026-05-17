@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CheckInRecord, Drill, Screen, SessionPlan, Settings, TrainingLog } from "./types";
 import { defaultDrills } from "./data/drills";
 import { exportBackupJson, exportLogsCsv } from "./logic/export";
-import { defaultStartDate, findSessionForToday, formatDisplayDate, generateDefaultPlan, todayIso } from "./logic/schedule";
+import { defaultStartDate, findSessionForToday, formatDisplayDate, generateDefaultPlan, officialStartDate, todayIso } from "./logic/schedule";
 import { loadJson, removeSummerRedlineData, saveJson, storageKeys, type AppBackup } from "./logic/storage";
 import { BottomNav } from "./components/BottomNav";
 import { Header } from "./components/Header";
@@ -14,21 +14,31 @@ import { Progress } from "./screens/Progress";
 import { ReferenceSettings } from "./screens/ReferenceSettings";
 
 function loadInitialSettings(): Settings {
-  return loadJson<Settings>(storageKeys.settings, { startDate: defaultStartDate() });
+  const stored = loadJson<Settings>(storageKeys.settings, { startDate: defaultStartDate() });
+  return { ...stored, startDate: officialStartDate };
 }
 
 function loadInitialPlan(settings: Settings): SessionPlan[] {
   const plan = loadJson<SessionPlan[]>(storageKeys.plan, generateDefaultPlan(settings.startDate));
-  return plan.length > 0 ? plan : generateDefaultPlan(settings.startDate);
+  if (settings.startDate === officialStartDate && plan[0]?.date === officialStartDate) return plan;
+  return generateDefaultPlan(settings.startDate);
+}
+
+function loadOfficialLogs(): TrainingLog[] {
+  return loadJson<TrainingLog[]>(storageKeys.logs, []).filter((log) => log.date >= officialStartDate);
+}
+
+function loadOfficialCheckIns(): CheckInRecord[] {
+  return loadJson<CheckInRecord[]>(storageKeys.checkIns, []).filter((checkIn) => checkIn.date >= officialStartDate);
 }
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(() => loadInitialSettings());
   const [plan, setPlan] = useState<SessionPlan[]>(() => loadInitialPlan(loadInitialSettings()));
-  const [logs, setLogs] = useState<TrainingLog[]>(() => loadJson<TrainingLog[]>(storageKeys.logs, []));
+  const [logs, setLogs] = useState<TrainingLog[]>(() => loadOfficialLogs());
   const [drills, setDrills] = useState<Drill[]>(() => loadJson<Drill[]>(storageKeys.drills, defaultDrills));
   const [checkIns, setCheckIns] = useState<CheckInRecord[]>(() =>
-    loadJson<CheckInRecord[]>(storageKeys.checkIns, []),
+    loadOfficialCheckIns(),
   );
   const [screen, setScreen] = useState<Screen>("today");
   const [logDraftSession, setLogDraftSession] = useState<SessionPlan | undefined>();
@@ -55,7 +65,7 @@ export default function App() {
   };
 
   const saveLog = (log: TrainingLog) => {
-    setLogs((current) => [log, ...current.filter((item) => item.id !== log.id)]);
+    setLogs((current) => [log, ...current.filter((item) => item.id !== log.id)].filter((item) => item.date >= officialStartDate));
     setLogDraftSession(undefined);
   };
 
@@ -101,11 +111,11 @@ export default function App() {
     }
     if (!window.confirm("Import this backup and replace current local data?")) return;
 
-    setSettings(backup.settings ?? { startDate: todayIso() });
-    setPlan(backup.plan);
-    setLogs(backup.logs);
+    setSettings({ ...(backup.settings ?? { startDate: officialStartDate }), startDate: officialStartDate });
+    setPlan(backup.plan[0]?.date === officialStartDate ? backup.plan : generateDefaultPlan(officialStartDate));
+    setLogs(backup.logs.filter((log) => log.date >= officialStartDate));
     setDrills(Array.isArray(backup.drills) && backup.drills.length > 0 ? backup.drills : defaultDrills);
-    setCheckIns(Array.isArray(backup.checkIns) ? backup.checkIns : []);
+    setCheckIns(Array.isArray(backup.checkIns) ? backup.checkIns.filter((checkIn) => checkIn.date >= officialStartDate) : []);
     setScreen("today");
   };
 
@@ -117,9 +127,10 @@ export default function App() {
           <Today
             session={todaySession}
             drills={drills}
+            logs={logs}
             onSaveLog={saveLog}
             onOpenPlan={() => setScreen("plan")}
-            onSaveCheckIn={(record) => setCheckIns((current) => [record, ...current])}
+            onSaveCheckIn={(record) => setCheckIns((current) => [record, ...current].filter((item) => item.date >= officialStartDate))}
           />
         ) : null}
         {screen === "plan" ? (
@@ -127,7 +138,7 @@ export default function App() {
             settings={settings}
             plan={plan}
             drills={drills}
-            onUpdateSettings={setSettings}
+            onUpdateSettings={(next) => setSettings({ ...next, startDate: officialStartDate })}
             onUpdatePlan={setPlan}
             onLogSession={handleLogSession}
           />
@@ -142,7 +153,7 @@ export default function App() {
             settings={settings}
             logCount={logs.length}
             checkInCount={checkIns.length}
-            onUpdateSettings={setSettings}
+            onUpdateSettings={(next) => setSettings({ ...next, startDate: officialStartDate })}
             onResetPlan={resetPlan}
             onResetApp={resetApp}
             onExportLogs={() => exportLogsCsv(logs, drills)}

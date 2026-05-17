@@ -11,7 +11,7 @@ import {
   warmupDetailsForSession,
   warmupNameForSession,
 } from "../logic/dailyPlan";
-import { formatDisplayDate, todayIso } from "../logic/schedule";
+import { formatDisplayDate, officialStartDate, parseLocalDate, todayIso, weekFromDate } from "../logic/schedule";
 import { AccordionCard } from "../components/AccordionCard";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -37,6 +37,7 @@ import {
 interface TodayProps {
   session: SessionPlan;
   drills: Drill[];
+  logs: TrainingLog[];
   onSaveCheckIn: (record: CheckInRecord) => void;
   onSaveLog: (log: TrainingLog) => void;
   onOpenPlan: () => void;
@@ -50,7 +51,7 @@ interface ResultState {
   adjusted: AdjustedSession;
 }
 
-export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }: TodayProps) {
+export function Today({ session, drills, logs, onSaveCheckIn, onSaveLog, onOpenPlan }: TodayProps) {
   const [mode, setMode] = useState<TodayMode>("overview");
   const [result, setResult] = useState<ResultState | null>(null);
   const [activeAdjusted, setActiveAdjusted] = useState(false);
@@ -173,6 +174,7 @@ export function Today({ session, drills, onSaveCheckIn, onSaveLog, onOpenPlan }:
         session={session}
         drills={drills}
         todayDrills={todayDrills}
+        logs={logs}
         plyoSummary={todayPlyos.summary}
         readiness={readiness}
         lanePlans={lanePlans}
@@ -206,6 +208,7 @@ function TodayLaunch({
   session,
   drills,
   todayDrills,
+  logs,
   plyoSummary,
   readiness,
   lanePlans,
@@ -219,6 +222,7 @@ function TodayLaunch({
   session: SessionPlan;
   drills: Drill[];
   todayDrills: Drill[];
+  logs: TrainingLog[];
   plyoSummary: string;
   readiness: ReadinessSnapshot;
   lanePlans: LanePlans;
@@ -230,57 +234,70 @@ function TodayLaunch({
   onRecovery: () => void;
 }) {
   const warmup = warmupNameForSession(session);
+  const programLabel = programDayLabel(todayIso());
+  const todayCall = buildTodayCall(readiness, stressCheck);
+  const recentResponse = buildRecentResponse(logs);
+  const whyBullets = buildWhyThisCall(readiness, stressCheck, recentResponse);
 
   return (
     <>
-      <Card accent className="today-build-card">
-        <div className="today-launch-kicker">
-          <span>Today&apos;s Build</span>
-          <span>{formatDisplayDate(todayIso(), { weekday: "long" })}</span>
-        </div>
-        <div className="today-launch-title">
-          <span>{session.phase}</span>
-          <h2>{session.dayType} + {lanePlans.hitting.sessionType} + {lanePlans.physical.sessionType}</h2>
-          <p>Main rule: Build today without making tomorrow worse.</p>
-        </div>
-        <p className="daily-note">Priority: {session.focus} + contact quality + strength bridge.</p>
-      </Card>
-
-      <Card className="readiness-card">
-        <div className="section-heading compact-heading">
+      <Card className="today-call-card">
+        <div className="today-call-top">
           <div>
-            <span className="eyebrow">Readiness</span>
-            <h2>{readiness.overall}</h2>
+            <span className="eyebrow">Today&apos;s Call</span>
+            <h2>{todayCall.title}</h2>
           </div>
+          <span className={`path-pill path-${slug(todayCall.path)}`}>{todayCall.path}</span>
         </div>
-        <div className="lane-metrics">
+        <p className="today-date-line">{formatDisplayDate(todayIso(), { weekday: "long" })} - {programLabel}</p>
+        <div className="readiness-strip">
           <MiniLaneMetric label="Arm" value={readiness.arm} />
           <MiniLaneMetric label="Knee" value={readiness.knee} />
           <MiniLaneMetric label="Energy" value={readiness.energy} />
         </div>
-        <p className="muted-line">{readiness.recommendation}</p>
+        <div className="main-move">
+          <span>Main move</span>
+          <strong>{todayCall.recommendation}</strong>
+        </div>
+        <div className="button-row premium-actions">
+          <Button variant="primary" icon={<ClipboardCheck size={17} />} onClick={onStart}>
+            Start Today
+          </Button>
+          <Button variant="secondary" onClick={onStart}>
+            Quick Log
+          </Button>
+        </div>
       </Card>
 
-      <Card className="today-preview-card">
-        <div className="preview-line">
-          <span>Warmup</span>
-          <strong>{warmup}</strong>
+      <div className="section-heading premium-section-heading">
+        <div>
+          <span className="eyebrow">Today&apos;s Plan</span>
+          <h2>Four lanes</h2>
         </div>
-        <div className="preview-line">
-          <span>Plyos</span>
-          <strong>{plyoSummary}</strong>
-        </div>
-        <div className="preview-line">
-          <span>Drills</span>
-          <strong>{todayDrills.length ? `${Math.min(todayDrills.length, 3)} drills` : "None planned"}</strong>
-        </div>
-      </Card>
+      </div>
 
       <ThrowingLaneCard session={session} onStart={onStart} onAdjust={onAdjust} />
       <HittingLaneCard plan={lanePlans.hitting} stressCheck={stressCheck} onStart={onHitting} />
       <PhysicalLaneCard plan={lanePlans.physical} stressCheck={stressCheck} onStart={onPhysical} />
       <RecoveryLaneCard plan={lanePlans.recovery} onStart={onRecovery} />
-      <DailyStressCard stressCheck={stressCheck} />
+
+      <Card className="recent-response-card">
+        <span className="eyebrow">Recent Response</span>
+        <p>{recentResponse}</p>
+      </Card>
+
+      <AccordionCard title="Why this call?" summary="Decision notes">
+        <ul className="tight-list premium-bullets">
+          {whyBullets.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+        <div className="today-preview-compact">
+          <span>{warmup}</span>
+          <span>{plyoSummary}</span>
+          <span>{todayDrills.length ? `${Math.min(todayDrills.length, 3)} drills` : "No drills"}</span>
+        </div>
+      </AccordionCard>
     </>
   );
 }
@@ -346,6 +363,59 @@ function MiniLaneMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function programDayLabel(dateIso: string): string {
+  const diff = Math.max(0, Math.floor((parseLocalDate(dateIso).getTime() - parseLocalDate(officialStartDate).getTime()) / (24 * 60 * 60 * 1000)));
+  const week = Math.max(1, weekFromDate(dateIso < officialStartDate ? officialStartDate : dateIso, officialStartDate));
+  const day = (diff % 7) + 1;
+  return `Week ${week} - Day ${day}`;
+}
+
+function buildTodayCall(readiness: ReadinessSnapshot, stressCheck: DailyStressCheck) {
+  if (readiness.overall === "Recovery Path") {
+    return { title: "Recovery Day", path: "Recovery", recommendation: "Remove high intent and restore the next-day response." };
+  }
+  if (readiness.overall === "Modified Path" || stressCheck.status === "Watch") {
+    return { title: "Modified Build Day", path: "Modified", recommendation: stressCheck.status === "Watch" ? stressCheck.recommendation : readiness.recommendation };
+  }
+  return { title: "Normal Build Day", path: "Normal", recommendation: "Train with intent. Log the response. Build the next day." };
+}
+
+function buildRecentResponse(logs: TrainingLog[]): string {
+  const sorted = [...logs].sort((a, b) => b.date.localeCompare(a.date));
+  const lastThrow = sorted.find((log) => log.lane === "throwing" || log.totalThrows > 0 || log.moundPitches > 0);
+  const lastPhysical = sorted.find((log) => log.lane === "physical");
+  const supportLogs = sorted.filter((log) => log.lane === "hitting" || log.lane === "physical").slice(0, 3);
+
+  if (lastThrow) {
+    return `Last throw: ${lastThrow.armStatus}. ${lastThrow.nextMorningSymptoms ? "Next-morning symptoms were logged." : "No next-morning symptoms logged."}`;
+  }
+  if (lastPhysical && laneTextFromLog(lastPhysical, "kneeAfter") === "Yellow") {
+    return "Knee was yellow after the last physical session. Impact work stays modified.";
+  }
+  if (supportLogs.length > 0 && supportLogs.every((log) => log.armStatus === "green")) {
+    return "No throwing logs yet. Clean hitting and physical support work logged.";
+  }
+  return "No official response logs yet. Start clean and log the response.";
+}
+
+function buildWhyThisCall(readiness: ReadinessSnapshot, stressCheck: DailyStressCheck, recentResponse: string): string[] {
+  const bullets = [readiness.recommendation];
+  if (stressCheck.status === "Watch") bullets.push(stressCheck.reason);
+  if (recentResponse.includes("No throwing logs")) bullets.push("Throwing progression still needs throwing-specific logs.");
+  if (readiness.knee === "Yellow") bullets.push("Knee is yellow, so impact work is modified.");
+  bullets.push("Keep details available, but make today decision-first.");
+  return Array.from(new Set(bullets)).slice(0, 4);
+}
+
+function laneTextFromLog(log: TrainingLog, key: string): string {
+  const value = log.laneData?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function distanceLabel(distanceFt: string): string {
+  return /\d/.test(distanceFt) ? `${distanceFt} ft` : distanceFt;
+}
+
 function ThrowingLaneCard({ session, onStart, onAdjust }: { session: SessionPlan; onStart: () => void; onAdjust: () => void }) {
   const stress = session.mound || session.dayType.includes("High") ? "High" : session.dayType.includes("Medium") ? "Medium" : "Low-Medium";
 
@@ -358,21 +428,21 @@ function ThrowingLaneCard({ session, onStart, onAdjust }: { session: SessionPlan
         </div>
         <ClipboardCheck size={22} />
       </div>
-      <p className="lane-prescription">{session.throws} throws / {session.distanceFt} ft / {session.intent}</p>
-      <p className="muted-line">Cue: {session.mainCue}</p>
+      <p className="lane-prescription">{session.throws} throws - {distanceLabel(session.distanceFt)} - {session.intent}</p>
+      <p className="muted-line">Goal: move clean and build response.</p>
       <div className="lane-metrics">
         <MiniLaneMetric label="Stress" value={stress} />
         <MiniLaneMetric label="Status" value="Planned" />
       </div>
       <div className="button-row">
         <Button variant="primary" icon={<ClipboardCheck size={17} />} onClick={onStart}>
-          Start Throwing
+          Start
         </Button>
         <Button variant="secondary" icon={<SlidersHorizontal size={17} />} onClick={onAdjust}>
           Adjust
         </Button>
         <Button variant="ghost" onClick={onStart}>
-          Quick Log
+          Log
         </Button>
       </div>
     </Card>
@@ -394,17 +464,17 @@ function HittingLaneCard({ plan, stressCheck, onStart }: { plan: LanePlan; stres
         <MiniLaneMetric label="Intent" value={plan.intent ?? "Medium"} />
         <MiniLaneMetric label="High intent" value={plan.highIntent ?? "Off"} />
       </div>
-      <p className="muted-line">Focus: {plan.focus}</p>
+      <p className="muted-line">Goal: {plan.focus}</p>
       {plan.highIntentGate && plan.highIntentGate !== "Allowed" && plan.highIntentGate !== "Not planned" ? (
         <p className="warning-line">High-intent hitting: {plan.highIntentGate}. Keep normal swings available, but do not redline.</p>
       ) : null}
       {stressCheck.status === "Watch" ? <p className="warning-line">{stressCheck.recommendation}</p> : null}
       <div className="button-row">
         <Button variant="primary" icon={<Target size={17} />} onClick={onStart}>
-          Start Hitting
+          Start
         </Button>
         <Button variant="ghost" onClick={onStart}>
-          Quick Log
+          Log
         </Button>
       </div>
     </Card>
@@ -425,19 +495,19 @@ function PhysicalLaneCard({ plan, stressCheck, onStart }: { plan: LanePlan; stre
         <MiniLaneMetric label="Focus" value={plan.stress} />
         <MiniLaneMetric label="Version" value={plan.recommended ?? "Full"} />
       </div>
-      <p className="muted-line">Focus: {plan.focus}</p>
+      <p className="muted-line">Goal: {plan.focus}</p>
       <p className="muted-line">Location: {plan.location}</p>
       {plan.reason ? <p className="warning-line">{plan.reason}</p> : null}
       {stressCheck.status === "Watch" ? <p className="warning-line">{stressCheck.reason}</p> : null}
       <div className="button-row">
         <Button variant="primary" icon={<Dumbbell size={17} />} onClick={onStart}>
-          Start Physical
+          Start
         </Button>
         <Button variant="secondary" onClick={onStart}>
           Options
         </Button>
         <Button variant="ghost" onClick={onStart}>
-          Quick Log
+          Log
         </Button>
       </div>
     </Card>
@@ -462,10 +532,10 @@ function RecoveryLaneCard({ plan, onStart }: { plan: LanePlan; onStart: () => vo
       </ul>
       <div className="button-row">
         <Button variant="primary" icon={<HeartPulse size={17} />} onClick={onStart}>
-          Start Recovery
+          Start
         </Button>
         <Button variant="ghost" onClick={onStart}>
-          Quick Log
+          Log
         </Button>
       </div>
     </Card>

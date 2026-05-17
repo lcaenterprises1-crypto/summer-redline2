@@ -1,4 +1,5 @@
 import type { CheckInRecord, TrainingLog } from "../types";
+import { useState } from "react";
 import {
   classifyLog,
   isHighIntentHittingExposure,
@@ -9,6 +10,7 @@ import {
   laneText,
 } from "../logic/logClassification";
 import { formatDisplayDate, todayIso, weekFromDate } from "../logic/schedule";
+import { AccordionCard } from "../components/AccordionCard";
 import { Card } from "../components/Card";
 import { StatusBadge } from "../components/StatusBadge";
 
@@ -22,6 +24,7 @@ type EarnedStatus = "Not Enough Throwing Data" | "Hold" | "Build" | "Green-Light
 type Tone = "neutral" | "good" | "watch" | "danger";
 type TrendLabel = "Stable" | "Improving" | "Watch" | "Back off" | "Not enough data yet";
 type EarnedEvidence = "not-enough-throwing" | "past-warning" | "current-warning" | "controlled-build" | "clean-build" | "green-light";
+type ProgressTab = "overall" | "throwing" | "hitting" | "physical" | "recovery";
 
 interface StatusCounts {
   green: number;
@@ -157,6 +160,7 @@ interface WarningPattern {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
+  const [tab, setTab] = useState<ProgressTab>("overall");
   const sortedLogs = sortLogsNewestFirst(logs);
   const sortedCheckIns = sortCheckInsNewestFirst(checkIns);
   const latestStatus = sortedLogs[0]?.armStatus ?? sortedCheckIns[0]?.status ?? "not checked";
@@ -181,16 +185,40 @@ export function Progress({ logs, checkIns = [], startDate }: ProgressProps) {
         <p>Earn it. Contain it. Log it. Recover from it.</p>
       </Card>
 
-      <WeeklyRecapCard recap={weeklyRecap} />
-      <WorkloadCard workload={workload} />
-      <HittingSummaryCard summary={hittingSummary} />
-      <PhysicalSummaryCard summary={physicalSummary} />
-      <RecoverySummaryCard summary={recoverySummary} />
-      <SystemTrendsCard trends={systemTrends} />
-      <CleanStreakCard streak={cleanStreak} />
-      <EarnedProgressionCard earned={earnedProgression} />
-      <WarningPatternsCard patterns={warningPatterns} />
-      <RecommendationCard recommendation={recommendation} earned={earnedProgression} />
+      <ProgressTabNav active={tab} onChange={setTab} />
+
+      {tab === "overall" ? (
+        <>
+          <OverallProgressCard recap={weeklyRecap} hitting={hittingSummary} physical={physicalSummary} recovery={recoverySummary} earned={earnedProgression} />
+          <RecommendationCard recommendation={recommendation} earned={earnedProgression} />
+          <AccordionCard title="Details" summary="Trends, streaks, warnings">
+            <div className="stack">
+              <SystemTrendsCard trends={systemTrends} />
+              <CleanStreakCard streak={cleanStreak} />
+              <WarningPatternsCard patterns={warningPatterns} />
+            </div>
+          </AccordionCard>
+        </>
+      ) : null}
+
+      {tab === "throwing" ? (
+        <>
+          <WorkloadCard workload={workload} />
+          <EarnedProgressionCard earned={earnedProgression} />
+          <CleanStreakCard streak={cleanStreak} />
+          <WarningPatternsCard patterns={warningPatterns} />
+        </>
+      ) : null}
+
+      {tab === "hitting" ? (
+        <>
+          <HittingSummaryCard summary={hittingSummary} />
+          <WeeklyHittingReviewCard summary={hittingSummary} />
+        </>
+      ) : null}
+
+      {tab === "physical" ? <PhysicalSummaryCard summary={physicalSummary} /> : null}
+      {tab === "recovery" ? <RecoverySummaryCard summary={recoverySummary} /> : null}
     </div>
   );
 }
@@ -255,6 +283,64 @@ function WeeklyRecapCard({ recap }: { recap: WeeklyRecap }) {
         <MiniMetric label="Yellow" value={recap.yellow} tone="watch" />
         <MiniMetric label="Red" value={recap.red} tone="danger" />
         <MiniMetric label="Not checked" value={recap.notChecked + recap.unknownDays} />
+      </div>
+      <p className="progress-copy">{recap.summary}</p>
+    </Card>
+  );
+}
+
+function ProgressTabNav({ active, onChange }: { active: ProgressTab; onChange: (tab: ProgressTab) => void }) {
+  const tabs: { id: ProgressTab; label: string }[] = [
+    { id: "overall", label: "Overall" },
+    { id: "throwing", label: "Throwing" },
+    { id: "hitting", label: "Hitting" },
+    { id: "physical", label: "Physical" },
+    { id: "recovery", label: "Recovery" },
+  ];
+
+  return (
+    <div className="progress-tabs" role="tablist" aria-label="Progress lanes">
+      {tabs.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={active === item.id ? "active" : ""}
+          onClick={() => onChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function OverallProgressCard({
+  recap,
+  hitting,
+  physical,
+  recovery,
+  earned,
+}: {
+  recap: WeeklyRecap;
+  hitting: HittingSummary;
+  physical: PhysicalSummary;
+  recovery: RecoverySummary;
+  earned: EarnedProgression;
+}) {
+  return (
+    <Card className="progress-card overall-progress-card">
+      <div className="progress-card-header">
+        <div>
+          <span className="eyebrow">Overall</span>
+          <h3>{recap.totalSessions} sessions this week</h3>
+        </div>
+        <StatusPill tone={earned.tone}>{earned.status}</StatusPill>
+      </div>
+      <div className="progress-mini-grid">
+        <MiniMetric label="Throwing" value={recap.throwingDays ? `${recap.throwingDays} logs` : "Need data"} />
+        <MiniMetric label="Hitting" value={hitting.hasData ? `${hitting.touches} touches` : "No logs"} />
+        <MiniMetric label="Physical" value={physical.hasData ? `${physical.sessions} sessions` : "No logs"} />
+        <MiniMetric label="Recovery" value={recovery.hasData ? `${recovery.sessions} logs` : "No logs"} />
       </div>
       <p className="progress-copy">{recap.summary}</p>
     </Card>

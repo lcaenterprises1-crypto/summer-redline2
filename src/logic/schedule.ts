@@ -3,6 +3,7 @@ import type { SessionPlan } from "../types";
 type TemplateDay = Omit<SessionPlan, "id" | "date" | "week" | "phase">;
 
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export const officialStartDate = "2026-05-18";
 
 export function parseLocalDate(iso: string): Date {
   return new Date(`${iso}T12:00:00`);
@@ -19,14 +20,8 @@ export function todayIso(): string {
   return toIsoDate(new Date());
 }
 
-export function defaultStartDate(today = new Date()): string {
-  const year = today.getFullYear();
-  const midMay = new Date(year, 4, 13, 12);
-  const june = new Date(year, 5, 1, 12);
-
-  if (today < midMay) return toIsoDate(midMay);
-  if (today < june) return toIsoDate(today);
-  return toIsoDate(midMay);
+export function defaultStartDate(_today = new Date()): string {
+  return officialStartDate;
 }
 
 export function addDays(iso: string, days: number): string {
