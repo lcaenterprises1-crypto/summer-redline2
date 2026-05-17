@@ -928,26 +928,32 @@ function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], sy
   const recentSupport = recent.filter((log) => isHittingTrainingLog(log) || isPhysicalTrainingLog(log) || isRecoveryTrainingLog(log));
   const pastThrowingWarning = logs.some((log) => isThrowingTrainingLog(log) && daysAgo(log.date) >= 14 && isArmWarningLog(log));
   const patterns: WarningPattern[] = [];
+  let hasSpecificWarning = false;
 
   const recentRedLog = recent.find((log) => log.armStatus === "red");
   if (recentRedLog) {
     const lane = classifyLog(recentRedLog);
+    hasSpecificWarning = true;
     patterns.push({ tone: "danger", text: `${titleCase(lane)} red status showed up recently. Back off until response is clean again.` });
   }
 
   if (recent.some((log) => (highIntentSignal(log) || isHighIntentHittingExposure(log)) && (log.armStatus === "yellow" || log.armStatus === "red"))) {
+    hasSpecificWarning = true;
     patterns.push({ tone: "watch", text: "High-output warning detected. Yellow/red signs showed up after higher intent. Keep the next session controlled." });
   }
 
   if (recent.some((log) => isThrowingTrainingLog(log) && (safeNumber(log.forearmTightnessAfter) >= 2 || safeNumber(log.bicepsTightnessAfter) >= 2))) {
-    patterns.push({ tone: "watch", text: "Throwing warning detected: forearm/biceps symptoms appeared after throwing. Do not ignore tightness just because pain is low." });
+    hasSpecificWarning = true;
+    patterns.push({ tone: "watch", text: "Throwing arm warning detected. Keep the next throwing session controlled and protect the next-morning response." });
   }
 
   if (recent.some((log) => isHittingTrainingLog(log) && ["Moderate", "High"].includes(laneText(log, "forearmFatigue")))) {
-    patterns.push({ tone: "watch", text: "Hitting forearm/hand warning detected. Keep high-intent hitting contained until response is clean." });
+    hasSpecificWarning = true;
+    patterns.push({ tone: "watch", text: "Hitting forearm/hand warning detected. Keep the next hitting session controlled and avoid redlining." });
   }
 
   if (recent.some((log) => isPhysicalTrainingLog(log) && (laneText(log, "kneeAfter") === "Yellow" || laneText(log, "kneeAfter") === "Red" || laneText(log, "painDuring") === "Knee"))) {
+    hasSpecificWarning = true;
     patterns.push({ tone: "watch", text: "Physical knee warning detected. Modify impact, sprinting, jumping, and painful knee-dominant work." });
   }
 
@@ -957,29 +963,29 @@ function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], sy
     patterns.push({ tone: "watch", text: "Need more recent logs before calling this a trend." });
   } else if (risingSymptoms) {
     patterns.push({ tone: "watch", text: "Symptoms are trending up. Hold the current level until the response settles." });
-  } else if (warningSymptoms) {
-    patterns.push({ tone: "watch", text: "Warning-level symptom logged recently. Keep the next session controlled and keep logging honestly." });
+  } else if (warningSymptoms && !hasSpecificWarning) {
+    patterns.push({ tone: "watch", text: "Warning-level symptom logged recently. Keep the next session controlled and use the next log to clarify the source." });
   }
 
   if (pastThrowingWarning && recentThrowing.length === 0 && recentSupport.length > 0 && recentSupport.every(isCleanLog)) {
-    patterns.push({ tone: "watch", text: "Past throwing/arm warning detected. Recent support logs may be clean, but throwing response still needs fresh data." });
+    patterns.push({ tone: "watch", text: "Past warning detected. Recent logs are cleaner, but keep logging before changing progression." });
   } else if (pastThrowingWarning && recentEvidenceCount < 3) {
-    patterns.push({ tone: "watch", text: "Past warning detected. Keep logging recent response before changing the plan." });
+    patterns.push({ tone: "watch", text: "Past warning detected. Recent logs are cleaner, but keep logging before changing progression." });
   }
 
   if (recentCheckIns.some((checkIn) => safeNumber(checkIn.input?.sleepHours, 8) < 6.5 && (checkIn.status === "yellow" || checkIn.status === "red"))) {
-    patterns.push({ tone: "watch", text: "Poor sleep lined up with yellow/red readiness. Keep the next session conservative." });
+    patterns.push({ tone: "watch", text: "Energy/recovery warning detected. Use the next session to restore, not prove readiness." });
   }
 
   if (recentCheckIns.some((checkIn) => safeNumber(checkIn.input?.bodyFatigue) >= 4 && (checkIn.status === "yellow" || checkIn.status === "red"))) {
-    patterns.push({ tone: "watch", text: "High fatigue showed up with a downgraded status. Recovery emphasis is winning today." });
+    patterns.push({ tone: "watch", text: "Energy/recovery warning detected. Use the next session to restore, not prove readiness." });
   }
 
   if (backToBackThrowingWarning(recent)) {
-    patterns.push({ tone: "watch", text: "Back-to-back throwing was followed by warning symptoms. Be careful stacking stress." });
+    patterns.push({ tone: "watch", text: "Throwing arm warning detected. Keep the next throwing session controlled and protect the next-morning response." });
   }
 
-  return patterns.slice(0, 4);
+  return uniquePatterns(patterns).slice(0, 4);
 }
 
 function buildEarnedProgression(
@@ -1290,6 +1296,15 @@ function countSessionType(logs: TrainingLog[], search: string): number {
 
 function countYes(logs: TrainingLog[], key: string): number {
   return logs.filter((log) => laneText(log, key) === "Yes").length;
+}
+
+function uniquePatterns(patterns: WarningPattern[]): WarningPattern[] {
+  const seen = new Set<string>();
+  return patterns.filter((pattern) => {
+    if (seen.has(pattern.text)) return false;
+    seen.add(pattern.text);
+    return true;
+  });
 }
 
 function currentCleanRun(logsNewestFirst: TrainingLog[]): number {
