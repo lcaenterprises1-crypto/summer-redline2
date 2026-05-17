@@ -21,6 +21,7 @@ interface ProgressProps {
 type EarnedStatus = "Not Enough Throwing Data" | "Hold" | "Build" | "Green-Light" | "Back off";
 type Tone = "neutral" | "good" | "watch" | "danger";
 type TrendLabel = "Stable" | "Improving" | "Watch" | "Back off" | "Not enough data yet";
+type EarnedEvidence = "not-enough-throwing" | "past-warning" | "current-warning" | "controlled-build" | "clean-build" | "green-light";
 
 interface StatusCounts {
   green: number;
@@ -61,6 +62,7 @@ interface EarnedProgression {
   status: EarnedStatus;
   tone: Tone;
   detail: string;
+  evidence: EarnedEvidence;
 }
 
 interface SymptomSummary {
@@ -567,7 +569,7 @@ function RecommendationCard({
       <div className="progress-card-header">
         <div>
           <span className="eyebrow">Recommendation</span>
-          <h3>{recommendationTitle(earned.status)}</h3>
+          <h3>{recommendationTitle(earned)}</h3>
         </div>
       </div>
       <p className="progress-copy">{recommendation}</p>
@@ -674,10 +676,10 @@ function buildCleanStreak(logs: TrainingLog[]): CleanStreak {
     logs.length === 0
       ? "Log a few sessions to start tracking clean streaks and earned exposure."
       : throwingCurrent === 0
-        ? "Overall clean logs help readiness, but throwing clean streak needs throwing logs."
+        ? "Overall clean streak counts all lanes. Throwing clean streak needs throwing logs before it can support throwing progression."
         : need > 0
           ? `Need ${need} more clean throwing ${need === 1 ? "session" : "sessions"} before considering an earned throwing progression touch.`
-          : "Throwing clean streak is building. Any added exposure should still be planned, contained, and logged.";
+          : "Throwing clean streak is building. Overall clean support helps a little, but any added throwing exposure should still be planned, contained, and logged.";
 
   return { overallCurrent, overallLongest, throwingCurrent, throwingLongest, lastYellow, lastRed, progressText };
 }
@@ -902,11 +904,11 @@ function buildSystemTrends(logs: TrainingLog[], checkIns: CheckInRecord[]): Syst
   const arm =
     throwing.length > 0
       ? `Primary: throwing logs. ${statusSentence(countStatuses(throwing))} Support: ${supportArmSentence(hitting, physical)}`
-      : `Primary: throwing logs. No recent throwing data. Support: ${supportArmSentence(hitting, physical)} Throwing-specific arm response still needs data.`;
+      : `Primary: throwing logs. No recent throwing data. ${nonThrowingArmSupportText(hitting, physical)} throwing-specific arm response still needs data.`;
 
   const knee =
     physical.length > 0
-      ? `Primary: physical logs. Knee: ${summarizeRecentLaneText(physical, "kneeAfter")}. Keep impact, sprinting, jumping, and painful knee-dominant work modified if yellow.`
+      ? `Primary: physical logs. Knee: ${summarizeRecentLaneText(physical, "kneeAfter")}. ${kneeAdvice(physical)}`
       : "Primary: physical logs. No recent physical knee data. Keep logging knee response after physical sessions.";
 
   const checkInEnergy = checkIns.filter((checkIn) => daysAgo(checkIn.date) < 14).map((checkIn) => checkIn.input?.bodyFatigue).filter((value): value is number => typeof value === "number");
@@ -922,6 +924,9 @@ function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], sy
   const recent = logsInLastDays(logs, 14);
   const recentCheckIns = checkIns.filter((checkIn) => daysAgo(checkIn.date) < 14);
   const recentEvidenceCount = recent.length + recentCheckIns.length;
+  const recentThrowing = recent.filter(isThrowingTrainingLog);
+  const recentSupport = recent.filter((log) => isHittingTrainingLog(log) || isPhysicalTrainingLog(log) || isRecoveryTrainingLog(log));
+  const pastThrowingWarning = logs.some((log) => isThrowingTrainingLog(log) && daysAgo(log.date) >= 14 && isArmWarningLog(log));
   const patterns: WarningPattern[] = [];
 
   const recentRedLog = recent.find((log) => log.armStatus === "red");
@@ -949,11 +954,17 @@ function buildWarningPatterns(logs: TrainingLog[], checkIns: CheckInRecord[], sy
   const risingSymptoms = symptoms.some((symptom) => symptom.direction === "rising");
   const warningSymptoms = symptoms.some((symptom) => symptom.direction === "warning");
   if (recentEvidenceCount < 3 && (risingSymptoms || warningSymptoms)) {
-    patterns.push({ tone: "watch", text: "Past warning detected. Keep logging recent response before changing the plan." });
+    patterns.push({ tone: "watch", text: "Need more recent logs before calling this a trend." });
   } else if (risingSymptoms) {
     patterns.push({ tone: "watch", text: "Symptoms are trending up. Hold the current level until the response settles." });
   } else if (warningSymptoms) {
     patterns.push({ tone: "watch", text: "Warning-level symptom logged recently. Keep the next session controlled and keep logging honestly." });
+  }
+
+  if (pastThrowingWarning && recentThrowing.length === 0 && recentSupport.length > 0 && recentSupport.every(isCleanLog)) {
+    patterns.push({ tone: "watch", text: "Past throwing/arm warning detected. Recent support logs may be clean, but throwing response still needs fresh data." });
+  } else if (pastThrowingWarning && recentEvidenceCount < 3) {
+    patterns.push({ tone: "watch", text: "Past warning detected. Keep logging recent response before changing the plan." });
   }
 
   if (recentCheckIns.some((checkIn) => safeNumber(checkIn.input?.sleepHours, 8) < 6.5 && (checkIn.status === "yellow" || checkIn.status === "red"))) {
@@ -984,15 +995,30 @@ function buildEarnedProgression(
   const cleanThrowing = throwing.filter(isCleanLog).length;
   const cleanSupport = recent.filter((log) => (isHittingTrainingLog(log) || isPhysicalTrainingLog(log) || isRecoveryTrainingLog(log)) && isCleanLog(log)).length;
   const symptomWarning = symptoms.some((symptom) => symptom.direction === "rising" || symptom.direction === "warning");
+  const currentThrowingWarning = throwing.some(isArmWarningLog);
+  const pastThrowingWarning = logs.some((log) => isThrowingTrainingLog(log) && daysAgo(log.date) >= 14 && isArmWarningLog(log));
   const redRecent = recent.some((log) => log.armStatus === "red");
   const yellowRecent = recent7.filter((log) => log.armStatus === "yellow").length;
   const nextMorning = throwing.some((log) => Boolean(log.nextMorningSymptoms));
 
   if (throwing.length === 0) {
+    if (pastThrowingWarning) {
+      return {
+        status: "Not Enough Throwing Data",
+        tone: "watch",
+        evidence: "past-warning",
+        detail: cleanSupport > 0
+          ? "Past arm warning detected. Recent support logs are clean, but throwing progression needs fresh throwing-specific data before adding exposure."
+          : "Past arm warning detected. Throwing progression needs fresh throwing-specific logs before adding exposure.",
+      };
+    }
     return {
       status: "Not Enough Throwing Data",
       tone: "neutral",
-      detail: "Overall response may be clean, but throwing progression still needs throwing-specific logs.",
+      evidence: "not-enough-throwing",
+      detail: cleanSupport > 0
+        ? "Overall response may be clean, and clean support work helps readiness slightly, but it does not replace throwing response."
+        : "Overall response may be clean, but throwing progression still needs throwing-specific logs.",
     };
   }
 
@@ -1000,15 +1026,19 @@ function buildEarnedProgression(
     return {
       status: "Back off",
       tone: "danger",
+      evidence: "current-warning",
       detail: "A red flag appeared recently. No long toss, radar, or higher-intent add-ons until the response is clean again.",
     };
   }
 
-  if (yellowRecent >= 2 || nextMorning || symptomWarning) {
+  if (yellowRecent >= 2 || nextMorning || currentThrowingWarning || symptomWarning) {
     return {
       status: "Hold",
       tone: "watch",
-      detail: "Yellow signs or symptom trends are present. Keep the next session conservative and protect the next-morning response.",
+      evidence: "current-warning",
+      detail: currentThrowingWarning || nextMorning
+        ? "Recent throwing response has a warning sign. Keep the next session conservative and protect the next-morning response."
+        : "Current yellow signs or supported symptom trends are present. Keep the next session conservative and protect the next-morning response.",
     };
   }
 
@@ -1016,6 +1046,7 @@ function buildEarnedProgression(
     return {
       status: "Green-Light",
       tone: "good",
+      evidence: "green-light",
       detail: "Throwing response is clean and support work is not creating issues. You may add one earned progression touch. Add one thing only, not everything.",
     };
   }
@@ -1024,35 +1055,40 @@ function buildEarnedProgression(
     return {
       status: "Build",
       tone: "neutral",
-      detail: cleanSupport > 0 ? "Clean support work helps, but keep the next throwing progression conservative until more throwing response is logged." : "Follow the planned progression. Keep stacking clean throwing sessions.",
+      evidence: cleanSupport > 0 ? "controlled-build" : "clean-build",
+      detail: cleanSupport > 0 ? "Clean support work helps, but keep the next throwing progression conservative until more throwing response is logged." : "Throwing response is clean so far. Follow the planned progression and keep stacking clean throwing sessions.",
     };
   }
 
   return {
     status: "Hold",
     tone: "neutral",
+    evidence: "not-enough-throwing",
     detail: "Throwing response is not clearly clean yet. Keep the next session conservative and log it honestly.",
   };
 }
 
 function buildRecommendation(earned: EarnedProgression, warnings: WarningPattern[], logCount: number): string {
+  if (earned.evidence === "past-warning") return "Recommendation: Past arm warning detected. Keep the next throwing session controlled and use the log to confirm response.";
+  if (earned.status === "Not Enough Throwing Data") return "Recommendation: Overall support work may be clean, but do not earn extra throwing exposure yet. Log the next throwing session honestly.";
   if (logCount < 3) return "Recommendation: Need more logs before judging. Log the next few sessions honestly and keep the plan conservative.";
-  if (earned.status === "Not Enough Throwing Data") return "Recommendation: Keep following the plan, but do not earn extra throwing exposure yet. Log the next throwing session honestly.";
   if (earned.status === "Back off") return "Recommendation: Recovery emphasis. No throwing add-ons until red flags and next-morning response are clean.";
   if (earned.status === "Hold") return "Recommendation: Hold current level. Use the conservative path and protect the next-morning response.";
   if (earned.status === "Green-Light") return "Recommendation: Follow normal progression and add one earned progression touch only if it is planned, contained, and logged.";
-  if (earned.status === "Build") return "Recommendation: Follow the planned progression. Hitting and physical work can support the plan, but throwing response is still the main evidence.";
+  if (earned.status === "Build") return "Recommendation: Follow planned progression. Throwing response is clean and support work is not creating issues.";
   if (warnings.length) return "Recommendation: Keep next session conservative and watch the pattern before adding stress.";
   return "Recommendation: Progress normally within the plan. No random aggression. Earn it, contain it, log it, recover from it.";
 }
 
 function weeklySummaryText(logs: TrainingLog[], counts: StatusCounts, throwingDays: number): string {
   const total = logs.length;
+  const throwingCounts = countStatuses(logs.filter(isThrowingTrainingLog));
   if (total === 0) return "Not enough logged data yet. Log a few sessions to unlock weekly trends.";
   if (counts.red > 0) return `This week: ${total} sessions logged. ${counts.green} green, ${counts.yellow} yellow, ${counts.red} red. Overall response is mixed. Keep the next session conservative until the trend clears.`;
   if (counts.yellow > 0) return `This week: ${total} sessions logged. ${counts.green} green, ${counts.yellow} yellow, 0 red. Overall response is mostly clean, but keep the next session controlled.`;
-  if (throwingDays === 0) return `Overall response is clean this week, but throwing-specific workload still needs more logs before judging arm progression.`;
-  return `Overall response is clean this week. Keep stacking.`;
+  if (throwingDays === 0) return "Overall response is clean this week. Throwing-specific response still needs throwing logs before judging arm progression.";
+  if (throwingCounts.green > 0 && throwingCounts.yellow === 0 && throwingCounts.red === 0) return "Throwing response is clean so far. Keep stacking.";
+  return "Overall support work is clean. Throwing response still needs throwing-specific data.";
 }
 
 function snapshotText(status: TrainingLog["armStatus"], symptomScore: number | null, nextMorning?: boolean): string {
@@ -1064,12 +1100,13 @@ function snapshotText(status: TrainingLog["armStatus"], symptomScore: number | n
   return "Latest data is usable, but keep logging to sharpen the read.";
 }
 
-function recommendationTitle(status: EarnedStatus): string {
-  if (status === "Back off") return "Recovery emphasis";
-  if (status === "Hold") return "Hold current level";
-  if (status === "Not Enough Throwing Data") return "Need throwing logs";
-  if (status === "Green-Light") return "One progression touch";
-  if (status === "Build") return "Build within the plan";
+function recommendationTitle(earned: EarnedProgression): string {
+  if (earned.evidence === "past-warning") return "Controlled next throw";
+  if (earned.status === "Back off") return "Recovery emphasis";
+  if (earned.status === "Hold") return "Hold current level";
+  if (earned.status === "Not Enough Throwing Data") return "Log throwing response";
+  if (earned.status === "Green-Light") return "One progression touch";
+  if (earned.status === "Build") return "Follow planned progression";
   return "Progress within the plan";
 }
 
@@ -1188,6 +1225,20 @@ function isCleanLog(log: TrainingLog): boolean {
   );
 }
 
+function isArmWarningLog(log: TrainingLog): boolean {
+  return (
+    log.armStatus === "yellow" ||
+    log.armStatus === "red" ||
+    safeNumber(log.forearmTightnessAfter) >= 2 ||
+    safeNumber(log.bicepsTightnessAfter) >= 2 ||
+    safeNumber(log.painDuring) > 0 ||
+    safeNumber(log.painOneHourAfter) > 0 ||
+    Boolean(log.hotRedHandForearm) ||
+    Boolean(log.nextMorningSymptoms) ||
+    log.decision === "regress"
+  );
+}
+
 function highIntentSignal(log: TrainingLog): boolean {
   return safeNumber(log.highIntentThrows) > 0 || maxNumberFromText(log.intentRange) >= 75 || textIncludes(log.actualDayType, "high-intent") || textIncludes(log.actualDayType, "velo");
 }
@@ -1279,6 +1330,22 @@ function supportArmSentence(hitting: TrainingLog[], physical: TrainingLog[]): st
     return log.armStatus === "yellow" || log.armStatus === "red" || armAfter === "yellow" || armAfter === "red" || ["Moderate", "High"].includes(laneText(log, "forearmFatigue"));
   });
   return warning ? "Support lanes show arm/forearm caution." : "Support lanes are arm-clean.";
+}
+
+function nonThrowingArmSupportText(hitting: TrainingLog[], physical: TrainingLog[]): string {
+  const support = [...hitting, ...physical];
+  if (support.length === 0) return "No non-throwing support data yet.";
+  return supportArmSentence(hitting, physical) === "Support lanes are arm-clean."
+    ? "Non-throwing logs are clean, but"
+    : "Non-throwing support logs show caution, and";
+}
+
+function kneeAdvice(physical: TrainingLog[]): string {
+  const kneeValues = physical.map((log) => laneText(log, "kneeAfter"));
+  if (kneeValues.includes("Red")) return "Knee is red. Use recovery or skip impact work.";
+  if (kneeValues.includes("Yellow")) return "Knee is yellow. Modify impact, sprinting, jumping, and painful knee-dominant work.";
+  if (kneeValues.includes("Green")) return "Knee is supporting normal training.";
+  return "Keep logging knee response after physical sessions.";
 }
 
 function energyAdvice(physical: TrainingLog[], checkInEnergy: number[]): string {
