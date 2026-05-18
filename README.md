@@ -4,7 +4,7 @@ Baseball Development Dashboard
 
 Summer Redline is a mobile-first baseball development dashboard for throwing, hitting, physical performance, recovery, readiness, logging, and earned progression.
 
-Patch notes: v2.0 - Premium UX Rebuild: cleaner visual system, redesigned Today dashboard, session detail pages, faster logging flow, Progress lane tabs, official May 18 start date, and reduced text-heavy clutter.
+Patch notes: v2.1 - Premium Light UX Rebuild: light blue visual system, mission-first Today dashboard, softer navigation, cleaner Progress tabs, text-first library polish, official May 18 start date, and reduced text-heavy clutter.
 
 Roadmap:
 - v2.x - Full Integrated Plan + Progress

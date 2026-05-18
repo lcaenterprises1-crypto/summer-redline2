@@ -1,7 +1,6 @@
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Drill } from "../types";
-import { drillCategories } from "../data/drills";
 import { Card } from "../components/Card";
 import { DrillCard } from "../components/DrillCard";
 
@@ -16,10 +15,7 @@ export function Drills({ drills }: DrillsProps) {
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return drills.filter((drill) => {
-      const matchesCategory =
-        category === "All" ||
-        drill.category === category ||
-        (category === "Warmup" && drill.category === "Plyos");
+      const matchesCategory = drillMatchesLibraryFilter(drill, category);
       const haystack = `${drill.name} ${drill.category} ${drill.problem} ${drill.useWhen} ${drill.cue}`.toLowerCase();
       return matchesCategory && (!normalized || haystack.includes(normalized));
     });
@@ -44,7 +40,7 @@ export function Drills({ drills }: DrillsProps) {
           />
         </label>
         <div className="chip-row" role="list" aria-label="Drill filters">
-          {drillCategories.map((item) => (
+          {["All", "Throwing", "Hitting", "Strength", "Recovery"].map((item) => (
             <button
               key={item}
               type="button"
@@ -58,10 +54,25 @@ export function Drills({ drills }: DrillsProps) {
       </Card>
 
       <div className="card-list">
-        {filtered.map((drill) => (
-          <DrillCard key={drill.id} drill={drill} />
-        ))}
+        {filtered.length ? (
+          filtered.map((drill) => (
+            <DrillCard key={drill.id} drill={drill} />
+          ))
+        ) : (
+          <Card>
+            <p className="muted-line">No drills in this lane yet. The throwing library is ready; hitting and strength references can be expanded later.</p>
+          </Card>
+        )}
       </div>
     </div>
   );
+}
+
+function drillMatchesLibraryFilter(drill: Drill, filter: string): boolean {
+  if (filter === "All") return true;
+  if (filter === "Recovery") return drill.category === "Yellow-arm day" || drill.category === "Arm timing";
+  if (filter === "Throwing") return !["Yellow-arm day"].includes(drill.category);
+  if (filter === "Hitting") return drill.category.toLowerCase().includes("hitting");
+  if (filter === "Strength") return drill.category.toLowerCase().includes("strength");
+  return true;
 }

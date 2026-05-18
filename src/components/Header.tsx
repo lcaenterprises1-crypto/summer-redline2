@@ -12,7 +12,7 @@ export function Header({ dateLabel, onOpenSettings }: HeaderProps) {
       <div>
         <div className="eyebrow">{dateLabel}</div>
         <h1>Summer Redline</h1>
-        <p>Baseball Development Dashboard</p>
+        <p>Baseball Development Dashboard - Train. Compete. Become.</p>
       </div>
       <Button
         variant="ghost"

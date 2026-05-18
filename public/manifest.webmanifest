@@ -4,8 +4,8 @@
   "description": "Baseball Development Dashboard",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#07080a",
-  "theme_color": "#07080a",
+  "background_color": "#EEF4FA",
+  "theme_color": "#EEF4FA",
   "orientation": "portrait",
   "icons": [
     {

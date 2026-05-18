@@ -2455,3 +2455,455 @@ textarea,
     padding-inline: 10px;
   }
 }
+
+/* v2.1 premium light-blue baseball OS */
+:root {
+  color-scheme: light;
+  --bg: #eef4fa;
+  --bg-main: #eef4fa;
+  --bg-soft: #e5edf6;
+  --panel: #f8fbff;
+  --panel-strong: #ffffff;
+  --panel-soft: #f2f7fd;
+  --surface: #f8fbff;
+  --surface-elevated: #ffffff;
+  --text: #10243d;
+  --text-primary: #10243d;
+  --muted: #52677f;
+  --text-secondary: #52677f;
+  --tertiary: #8190a3;
+  --line: #d6e1ec;
+  --divider: #e3eaf2;
+  --accent: #3f6fb6;
+  --accent-2: #6e9ed8;
+  --blue-primary: #3f6fb6;
+  --blue-secondary: #6e9ed8;
+  --blue-soft: #ddebfa;
+  --blue-pale: #f2f7fd;
+  --info: #6a7f99;
+  --green: #4c9a78;
+  --yellow: #c79a3a;
+  --danger: #c55e63;
+  --red: #c55e63;
+  --shadow: 0 18px 45px rgba(42, 72, 108, 0.12);
+  --shell-top-space: calc(22px + var(--safe-top));
+  --bottom-nav-space: calc(106px + var(--safe-bottom));
+}
+
+html,
+body,
+#root {
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+
+body {
+  background:
+    radial-gradient(circle at 20% -10%, rgba(110, 158, 216, 0.28), transparent 280px),
+    linear-gradient(180deg, #f6fbff 0%, var(--bg-main) 45%, #e8f0f8 100%);
+}
+
+body::before {
+  background: rgba(246, 251, 255, 0.96);
+}
+
+.app-shell {
+  padding-inline: 16px;
+}
+
+.app-header {
+  align-items: center;
+  padding: 6px 0 20px;
+}
+
+.app-header > div:first-child {
+  position: relative;
+  padding-left: 48px;
+}
+
+.app-header > div:first-child::before {
+  content: "SR";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(63, 111, 182, 0.18);
+  border-radius: 13px;
+  background: linear-gradient(145deg, #ffffff, #dceaf8);
+  color: var(--blue-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  box-shadow: 0 10px 25px rgba(63, 111, 182, 0.12);
+}
+
+.app-header h1 {
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.72rem;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+}
+
+.app-header p {
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.eyebrow {
+  color: var(--text-muted, #8190a3);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.card {
+  border: 1px solid rgba(214, 225, 236, 0.95);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: var(--shadow);
+  color: var(--text-primary);
+}
+
+.card-accent {
+  border-color: rgba(63, 111, 182, 0.16);
+  background:
+    linear-gradient(135deg, rgba(221, 235, 250, 0.95), rgba(255, 255, 255, 0.92) 58%),
+    #ffffff;
+}
+
+.card p,
+.progress-copy,
+.muted-line,
+.note {
+  color: var(--text-secondary);
+}
+
+.button-primary {
+  background: linear-gradient(180deg, #5f8ccc, var(--blue-primary));
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(63, 111, 182, 0.22);
+}
+
+.button-secondary {
+  border-color: rgba(63, 111, 182, 0.24);
+  background: rgba(221, 235, 250, 0.72);
+  color: var(--blue-primary);
+}
+
+.button-ghost {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text-primary);
+}
+
+input,
+select,
+textarea,
+.search-field {
+  border-color: var(--border-soft, #d6e1ec);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-primary);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(63, 111, 182, 0.66);
+  box-shadow: 0 0 0 3px rgba(63, 111, 182, 0.12);
+}
+
+.today-call-card {
+  border-color: rgba(63, 111, 182, 0.16);
+  background:
+    linear-gradient(145deg, rgba(221, 235, 250, 0.98), rgba(255, 255, 255, 0.94) 58%),
+    #ffffff;
+}
+
+.today-call-card h2 {
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 760;
+}
+
+.today-date-line {
+  color: var(--text-secondary);
+}
+
+.main-move,
+.progress-mini,
+.trend-card,
+.symptom-row,
+.warning-item,
+.mini-metric,
+.plan-block,
+.substitution {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(242, 247, 253, 0.72);
+}
+
+.main-move span,
+.progress-mini span,
+.trend-bar span,
+dt,
+.field > span,
+.range-field > span {
+  color: var(--text-muted, #8190a3);
+}
+
+.main-move strong,
+.lane-prescription,
+dd,
+.progress-mini strong,
+.recent-response-card p {
+  color: var(--text-primary);
+}
+
+.path-pill,
+.need-data-badge,
+.progress-pill,
+.status-badge {
+  border-color: rgba(214, 225, 236, 0.9);
+  background: rgba(242, 247, 253, 0.9);
+  color: var(--text-secondary);
+}
+
+.path-normal,
+.status-green,
+.tone-good,
+.metric-good {
+  border-color: rgba(76, 154, 120, 0.22);
+  background: #e2f3ea;
+  color: #2e7257;
+}
+
+.path-modified,
+.status-yellow,
+.tone-watch,
+.metric-watch {
+  border-color: rgba(199, 154, 58, 0.24);
+  background: #f6edcf;
+  color: #8b681d;
+}
+
+.path-recovery,
+.status-red,
+.tone-danger,
+.metric-danger {
+  border-color: rgba(197, 94, 99, 0.22);
+  background: #f5dfe1;
+  color: #9e3f45;
+}
+
+.status-not-checked,
+.tone-neutral {
+  border-color: rgba(129, 144, 163, 0.22);
+  background: #edf3f8;
+  color: var(--text-secondary);
+}
+
+.lane-card {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.lane-card-header svg {
+  color: var(--blue-primary);
+}
+
+.mini-lane-metric {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(242, 247, 253, 0.82);
+}
+
+.warning-line,
+.inline-message {
+  border-color: rgba(199, 154, 58, 0.24);
+  background: #f6edcf;
+  color: #7b5d1e;
+}
+
+.today-preview-compact span,
+.chip {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--text-secondary);
+}
+
+.chip.active {
+  border-color: rgba(63, 111, 182, 0.28);
+  background: var(--blue-soft);
+  color: var(--blue-primary);
+}
+
+.active-session-hero,
+.lane-session-hero,
+.progress-hero,
+.roadmap-hero {
+  border-color: rgba(63, 111, 182, 0.16);
+  background:
+    linear-gradient(145deg, rgba(221, 235, 250, 0.95), rgba(255, 255, 255, 0.92) 62%),
+    #ffffff;
+}
+
+.active-session-hero h2,
+.lane-session-hero h2,
+.progress-hero h2,
+.roadmap-hero h2 {
+  color: var(--text-primary);
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 760;
+}
+
+.progress-tabs,
+.log-filter-tabs {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(248, 251, 255, 0.82);
+  box-shadow: 0 12px 28px rgba(42, 72, 108, 0.08);
+}
+
+.progress-tabs button,
+.log-filter-tabs button {
+  color: var(--text-secondary);
+}
+
+.progress-tabs button.active,
+.log-filter-tabs button.active {
+  background: var(--blue-soft);
+  color: var(--blue-primary);
+}
+
+.accordion-card,
+.quick-log-card,
+.quick-log-panel {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.accordion-trigger,
+.output-toggle {
+  color: var(--text-primary);
+}
+
+.drill-card {
+  gap: 8px;
+  box-shadow: none;
+}
+
+.drill-card .card-topline span:first-child {
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: var(--blue-pale);
+  color: var(--blue-primary);
+}
+
+.bottom-nav {
+  border-top: 1px solid rgba(214, 225, 236, 0.82);
+  background: rgba(248, 251, 255, 0.86);
+  box-shadow: 0 -16px 36px rgba(42, 72, 108, 0.12);
+}
+
+.nav-item {
+  color: var(--text-muted, #8190a3);
+}
+
+.nav-item.active {
+  background: var(--blue-soft);
+  color: var(--blue-primary);
+}
+
+.roadmap-progress span {
+  background: linear-gradient(90deg, var(--blue-primary), var(--blue-secondary));
+}
+
+.phase-path-node.current span,
+.badge-grid .earned,
+.milestone-strip .earned {
+  background: var(--blue-soft);
+  color: var(--blue-primary);
+}
+
+.daily-note,
+.today-launch-title span,
+.session-title-row span,
+.focus-line,
+.recommendation-card h3 {
+  color: var(--blue-primary);
+}
+
+.today-prescription,
+.preview-line,
+.inline-message,
+.output-log-card,
+.phase-card,
+.week-accordion,
+.roadmap-day-card,
+.roadmap-settings,
+.roadmap-motivation,
+.filter-grid .chip,
+.compact-number-field,
+.quick-log-block,
+.status-segmented,
+.score-chip-group,
+.switch-field {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.today-prescription,
+.inline-message {
+  color: var(--text-primary);
+}
+
+.roadmap-focus-grid div,
+.roadmap-milestone,
+.phase-unlocks em,
+.badge-grid span,
+.milestone-strip span,
+.day-type-badge,
+.lane-log-badge {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: var(--blue-pale);
+  color: var(--text-secondary);
+}
+
+.phase-trigger,
+.week-trigger,
+.accordion-trigger {
+  color: var(--text-primary);
+}
+
+.phase-trigger small,
+.week-trigger small,
+.accordion-trigger small {
+  color: var(--text-secondary);
+}
+
+.roadmap-progress {
+  background: rgba(214, 225, 236, 0.78);
+}
+
+.status-segmented button.active,
+.score-chip-group button.active {
+  border-color: rgba(63, 111, 182, 0.3);
+  background: var(--blue-soft);
+  color: var(--blue-primary);
+}
+
+.quick-log-form input,
+.quick-log-form select,
+.quick-log-form textarea {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.file-button {
+  border-color: rgba(214, 225, 236, 0.95);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--blue-primary);
+}
+
+.search-field svg,
+.icon-button svg,
+.nav-item svg {
+  color: currentColor;
+}
